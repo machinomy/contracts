@@ -17,11 +17,13 @@
     "test": "test"
   },
   "scripts": {
+    "support:build": "tsc --project support/tsconfig.json",
+    "support:wrap": "yarn support:build && node support/wrap.js 'build/contracts/@(Broker|TokenBroker|ERC20).json' --output build/wrappers",
     "truffle:test": "run-with-testrpc --networkId 999 --mnemonic 'testtest' --unlock 0 'truffle test ./test/*.test.js'",
     "truffle:migrate": "truffle migrate",
     "truffle:migrate:ropsten": "truffle migrate --network ropsten",
     "test": "yarn run build && yarn run truffle:test",
-    "build": "tsc",
+    "build": "tsc --project tsconfig.json",
     "lint": "tslint -t stylish --type-check -p '.' -e './build/**/*.ts'",
     "prepare": "yarn lint && yarn build"
   },
@@ -44,12 +46,18 @@
     "@types/bignumber.js": "^4.0.3",
     "@types/chai": "^4.0.5",
     "@types/chai-as-promised": "^7.1.0",
+    "@types/glob": "^5.0.34",
+    "@types/handlebars": "^4.0.36",
     "@types/node": "^8.0.28",
     "chai-as-promised": "^7.1.1",
+    "glob": "^7.1.2",
+    "handlebars": "^4.0.11",
     "run-with-testrpc": "^0.2.1",
     "truffle": "^3.2.93",
     "tslint": "^5.7.0",
     "tslint-config-standard": "^6.0.1",
+    "types-bn": "^0.0.1",
+    "types-ethereumjs-util": "https://github.com/machinomy/types-ethereumjs-util.git",
     "typescript": "^2.5.3"
   },
   "dependencies": {

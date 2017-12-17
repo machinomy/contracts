@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "module": "commonjs",
+    "lib": [
+      "es2015.collection",
+      "es2015"
+    ],
+    "typeRoots": [
+      "../node_modules/@types"
+    ]
+  },
+  "include": [
+    "../node_modules/**/*/index.d.ts",
+    "./*.ts"
+  ]
+}
