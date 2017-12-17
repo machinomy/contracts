@@ -4,3 +4,7 @@ declare var before: any
 declare var beforeEach: any
 declare var describe: any
 declare var it: any
+
+declare module 'ethereumjs-abi' {
+  export function soliditySHA3(types: string[], values: any[]): Buffer
+}
