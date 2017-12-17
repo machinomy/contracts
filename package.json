@@ -25,7 +25,7 @@
     "test": "yarn run build && yarn run truffle:test",
     "build": "yarn run support:wrap && tsc --project tsconfig.json",
     "lint": "tslint -t stylish --type-check -p '.'",
-    "prepare": "yarn lint && yarn build"
+    "prepare": "yarn build && yarn lint"
   },
   "repository": {
     "type": "git",
