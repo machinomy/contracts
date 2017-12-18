@@ -26,7 +26,7 @@ contract('TokenBroker', async accounts => {
   }
 
   const setup = async function (): Promise<Setup> {
-    let token = await ERC20Example.deploy(web3.currentProvider, { from: owner, gas: 700000 })
+    let token = await ERC20Example.deploy(web3.currentProvider, { from: owner, gas: 1200000 })
     let broker = await contract.deployed()
     await token.mint(owner, 100, { from: owner })
     await token.mint(sender, 100, { from: owner })
