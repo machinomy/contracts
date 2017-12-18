@@ -10,6 +10,8 @@ yarn-error.log
 build/wrappers/*.ts
 build/wrappers/*.js
 helpers/*.js
+support/*.js
+coverage/
 types/*.js
 test/*.js
 src/*.js
