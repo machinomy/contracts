@@ -1,0 +1,975 @@
+{
+  "contractName": "BidiBroker",
+  "abi": [
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "settlements",
+      "outputs": [
+        {
+          "name": "channelId",
+          "type": "bytes32"
+        },
+        {
+          "name": "paymentId",
+          "type": "uint64"
+        },
+        {
+          "name": "toSender",
+          "type": "uint256"
+        },
+        {
+          "name": "toReceiver",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "_chainId",
+          "type": "uint32"
+        }
+      ],
+      "name": "Broker",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "channels",
+      "outputs": [
+        {
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "name": "receiver",
+          "type": "address"
+        },
+        {
+          "name": "senderDeposit",
+          "type": "uint256"
+        },
+        {
+          "name": "receiverDeposit",
+          "type": "uint256"
+        },
+        {
+          "name": "settlementPeriod",
+          "type": "uint256"
+        },
+        {
+          "name": "validUntil",
+          "type": "uint256"
+        },
+        {
+          "name": "state",
+          "type": "uint8"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "destroy",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "_recipient",
+          "type": "address"
+        }
+      ],
+      "name": "destroyAndSend",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "name": "channelId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "DidCreateChannel",
+      "type": "event"
+    }
+  ],
+  "bytecode": "0x6060604052336000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055506105f2806100536000396000f300606060405260043610610083576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806301bc95e2146100885780637a3fc6dc146100f45780637a7ebd7b1461011d57806383197ef0146101e85780638da5cb5b146101fd578063f2fde38b14610252578063f5074f411461028b575b600080fd5b341561009357600080fd5b6100ad6004808035600019169060200190919050506102c4565b6040518085600019166000191681526020018467ffffffffffffffff1667ffffffffffffffff16815260200183815260200182815260200194505050505060405180910390f35b34156100ff57600080fd5b61011b600480803563ffffffff16906020019091905050610308565b005b341561012857600080fd5b610142600480803560001916906020019091905050610334565b604051808873ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018773ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018681526020018581526020018481526020018381526020018260028111156101ce57fe5b60ff16815260200197505050505050505060405180910390f35b34156101f357600080fd5b6101fb6103c3565b005b341561020857600080fd5b610210610458565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b341561025d57600080fd5b610289600480803573ffffffffffffffffffffffffffffffffffffffff1690602001909190505061047d565b005b341561029657600080fd5b6102c2600480803573ffffffffffffffffffffffffffffffffffffffff16906020019091905050610552565b005b60026020528060005260406000206000915090508060000154908060010160009054906101000a900467ffffffffffffffff16908060020154908060030154905084565b80600360006101000a81548163ffffffff021916908363ffffffff160217905550600060048190555050565b60016020528060005260406000206000915090508060000160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16908060010160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16908060020154908060030154908060040154908060050154908060060160009054906101000a900460ff16905087565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614151561041e57600080fd5b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16ff5b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161415156104d857600080fd5b600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614151561054f57806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505b50565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161415156105ad57600080fd5b8073ffffffffffffffffffffffffffffffffffffffff16ff00a165627a7a723058205cf181ccfc0abc66cf7d0744276b1cda1770645a104806008d832d5ce77a36fa0029",
+  "deployedBytecode": "0x606060405260043610610083576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806301bc95e2146100885780637a3fc6dc146100f45780637a7ebd7b1461011d57806383197ef0146101e85780638da5cb5b146101fd578063f2fde38b14610252578063f5074f411461028b575b600080fd5b341561009357600080fd5b6100ad6004808035600019169060200190919050506102c4565b6040518085600019166000191681526020018467ffffffffffffffff1667ffffffffffffffff16815260200183815260200182815260200194505050505060405180910390f35b34156100ff57600080fd5b61011b600480803563ffffffff16906020019091905050610308565b005b341561012857600080fd5b610142600480803560001916906020019091905050610334565b604051808873ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018773ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018681526020018581526020018481526020018381526020018260028111156101ce57fe5b60ff16815260200197505050505050505060405180910390f35b34156101f357600080fd5b6101fb6103c3565b005b341561020857600080fd5b610210610458565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b341561025d57600080fd5b610289600480803573ffffffffffffffffffffffffffffffffffffffff1690602001909190505061047d565b005b341561029657600080fd5b6102c2600480803573ffffffffffffffffffffffffffffffffffffffff16906020019091905050610552565b005b60026020528060005260406000206000915090508060000154908060010160009054906101000a900467ffffffffffffffff16908060020154908060030154905084565b80600360006101000a81548163ffffffff021916908363ffffffff160217905550600060048190555050565b60016020528060005260406000206000915090508060000160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16908060010160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16908060020154908060030154908060040154908060050154908060060160009054906101000a900460ff16905087565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614151561041e57600080fd5b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16ff5b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161415156104d857600080fd5b600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614151561054f57806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505b50565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161415156105ad57600080fd5b8073ffffffffffffffffffffffffffffffffffffffff16ff00a165627a7a723058205cf181ccfc0abc66cf7d0744276b1cda1770645a104806008d832d5ce77a36fa0029",
+  "sourceMap": "93:762:0:-;;;413:10:7;405:5;;:18;;;;;;;;;;;;;;;;;;93:762:0;;;;;;",
+  "deployedSourceMap": "93:762:0:-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;621:49;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;762:91;;;;;;;;;;;;;;;;;;;;;;;;;;;;565:50;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;371:59:5;;;;;;;;;;;;;;238:20:7;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;738:124;;;;;;;;;;;;;;;;;;;;;;;;;;;;434:89:5;;;;;;;;;;;;;;;;;;;;;;;;;;;;621:49:0;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;:::o;762:91::-;822:8;812:7;;:18;;;;;;;;;;;;;;;;;;845:1;840:2;:6;;;;762:91;:::o;565:50::-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;:::o;371:59:5:-;558:5:7;;;;;;;;;;;544:19;;:10;:19;;;536:28;;;;;;;;419:5:5;;;;;;;;;;;406:19;;;238:20:7;;;;;;;;;;;;;:::o;738:124::-;558:5;;;;;;;;;;;544:19;;:10;:19;;;536:28;;;;;;;;823:1;803:22;;:8;:22;;;;799:59;;;843:8;835:5;;:16;;;;;;;;;;;;;;;;;;799:59;738:124;:::o;434:89:5:-;558:5:7;;;;;;;;;;;544:19;;:10;:19;;;536:28;;;;;;;;507:10:5;494:24;;",
+  "source": "pragma solidity ^0.4.11;\n\nimport \"zeppelin-solidity/contracts/lifecycle/Destructible.sol\";\n\n\ncontract BidiBroker is Destructible {\n    enum ChannelState { Open, Settling, Settled }\n\n    struct Settlement {\n        bytes32 channelId;\n        uint64 paymentId;\n        uint256 toSender;\n        uint256 toReceiver;\n    }\n\n    struct PaymentChannel {\n        address sender;\n        address receiver;\n        uint256 senderDeposit;\n        uint256 receiverDeposit;\n\n        uint256 settlementPeriod;\n        uint256 validUntil;\n\n        ChannelState state;\n    }\n\n    mapping(bytes32 => PaymentChannel) public channels;\n    mapping(bytes32 => Settlement) public settlements;\n\n    uint32 chainId;\n    uint256 id;\n\n    event DidCreateChannel(bytes32 channelId);\n\n    function Broker(uint32 _chainId) public {\n        chainId = _chainId;\n        id = 0;\n    }\n}\n",
+  "sourcePath": "/Users/ukstv/Documents/Pro/Machinomy/machinomy-contracts/contracts/BidiBroker.sol",
+  "ast": {
+    "attributes": {
+      "absolutePath": "/Users/ukstv/Documents/Pro/Machinomy/machinomy-contracts/contracts/BidiBroker.sol",
+      "exportedSymbols": {
+        "BidiBroker": [
+          63
+        ]
+      }
+    },
+    "children": [
+      {
+        "attributes": {
+          "literals": [
+            "solidity",
+            "^",
+            "0.4",
+            ".11"
+          ]
+        },
+        "id": 1,
+        "name": "PragmaDirective",
+        "src": "0:24:0"
+      },
+      {
+        "attributes": {
+          "SourceUnit": 1554,
+          "absolutePath": "zeppelin-solidity/contracts/lifecycle/Destructible.sol",
+          "file": "zeppelin-solidity/contracts/lifecycle/Destructible.sol",
+          "scope": 64,
+          "symbolAliases": [
+            null
+          ],
+          "unitAlias": ""
+        },
+        "id": 2,
+        "name": "ImportDirective",
+        "src": "26:64:0"
+      },
+      {
+        "attributes": {
+          "contractDependencies": [
+            1553,
+            1692
+          ],
+          "contractKind": "contract",
+          "documentation": null,
+          "fullyImplemented": true,
+          "linearizedBaseContracts": [
+            63,
+            1553,
+            1692
+          ],
+          "name": "BidiBroker",
+          "scope": 64
+        },
+        "children": [
+          {
+            "attributes": {
+              "arguments": [
+                null
+              ]
+            },
+            "children": [
+              {
+                "attributes": {
+                  "contractScope": null,
+                  "name": "Destructible",
+                  "referencedDeclaration": 1553,
+                  "type": "contract Destructible"
+                },
+                "id": 3,
+                "name": "UserDefinedTypeName",
+                "src": "116:12:0"
+              }
+            ],
+            "id": 4,
+            "name": "InheritanceSpecifier",
+            "src": "116:12:0"
+          },
+          {
+            "attributes": {
+              "canonicalName": "BidiBroker.ChannelState",
+              "name": "ChannelState"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "name": "Open"
+                },
+                "id": 5,
+                "name": "EnumValue",
+                "src": "155:4:0"
+              },
+              {
+                "attributes": {
+                  "name": "Settling"
+                },
+                "id": 6,
+                "name": "EnumValue",
+                "src": "161:8:0"
+              },
+              {
+                "attributes": {
+                  "name": "Settled"
+                },
+                "id": 7,
+                "name": "EnumValue",
+                "src": "171:7:0"
+              }
+            ],
+            "id": 8,
+            "name": "EnumDefinition",
+            "src": "135:45:0"
+          },
+          {
+            "attributes": {
+              "canonicalName": "BidiBroker.Settlement",
+              "name": "Settlement",
+              "scope": 63,
+              "visibility": "public"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "constant": false,
+                  "name": "channelId",
+                  "scope": 17,
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "type": "bytes32",
+                  "value": null,
+                  "visibility": "internal"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "name": "bytes32",
+                      "type": "bytes32"
+                    },
+                    "id": 9,
+                    "name": "ElementaryTypeName",
+                    "src": "214:7:0"
+                  }
+                ],
+                "id": 10,
+                "name": "VariableDeclaration",
+                "src": "214:17:0"
+              },
+              {
+                "attributes": {
+                  "constant": false,
+                  "name": "paymentId",
+                  "scope": 17,
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "type": "uint64",
+                  "value": null,
+                  "visibility": "internal"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "name": "uint64",
+                      "type": "uint64"
+                    },
+                    "id": 11,
+                    "name": "ElementaryTypeName",
+                    "src": "241:6:0"
+                  }
+                ],
+                "id": 12,
+                "name": "VariableDeclaration",
+                "src": "241:16:0"
+              },
+              {
+                "attributes": {
+                  "constant": false,
+                  "name": "toSender",
+                  "scope": 17,
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "type": "uint256",
+                  "value": null,
+                  "visibility": "internal"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "name": "uint256",
+                      "type": "uint256"
+                    },
+                    "id": 13,
+                    "name": "ElementaryTypeName",
+                    "src": "267:7:0"
+                  }
+                ],
+                "id": 14,
+                "name": "VariableDeclaration",
+                "src": "267:16:0"
+              },
+              {
+                "attributes": {
+                  "constant": false,
+                  "name": "toReceiver",
+                  "scope": 17,
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "type": "uint256",
+                  "value": null,
+                  "visibility": "internal"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "name": "uint256",
+                      "type": "uint256"
+                    },
+                    "id": 15,
+                    "name": "ElementaryTypeName",
+                    "src": "293:7:0"
+                  }
+                ],
+                "id": 16,
+                "name": "VariableDeclaration",
+                "src": "293:18:0"
+              }
+            ],
+            "id": 17,
+            "name": "StructDefinition",
+            "src": "186:132:0"
+          },
+          {
+            "attributes": {
+              "canonicalName": "BidiBroker.PaymentChannel",
+              "name": "PaymentChannel",
+              "scope": 63,
+              "visibility": "public"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "constant": false,
+                  "name": "sender",
+                  "scope": 32,
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "type": "address",
+                  "value": null,
+                  "visibility": "internal"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "name": "address",
+                      "type": "address"
+                    },
+                    "id": 18,
+                    "name": "ElementaryTypeName",
+                    "src": "356:7:0"
+                  }
+                ],
+                "id": 19,
+                "name": "VariableDeclaration",
+                "src": "356:14:0"
+              },
+              {
+                "attributes": {
+                  "constant": false,
+                  "name": "receiver",
+                  "scope": 32,
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "type": "address",
+                  "value": null,
+                  "visibility": "internal"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "name": "address",
+                      "type": "address"
+                    },
+                    "id": 20,
+                    "name": "ElementaryTypeName",
+                    "src": "380:7:0"
+                  }
+                ],
+                "id": 21,
+                "name": "VariableDeclaration",
+                "src": "380:16:0"
+              },
+              {
+                "attributes": {
+                  "constant": false,
+                  "name": "senderDeposit",
+                  "scope": 32,
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "type": "uint256",
+                  "value": null,
+                  "visibility": "internal"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "name": "uint256",
+                      "type": "uint256"
+                    },
+                    "id": 22,
+                    "name": "ElementaryTypeName",
+                    "src": "406:7:0"
+                  }
+                ],
+                "id": 23,
+                "name": "VariableDeclaration",
+                "src": "406:21:0"
+              },
+              {
+                "attributes": {
+                  "constant": false,
+                  "name": "receiverDeposit",
+                  "scope": 32,
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "type": "uint256",
+                  "value": null,
+                  "visibility": "internal"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "name": "uint256",
+                      "type": "uint256"
+                    },
+                    "id": 24,
+                    "name": "ElementaryTypeName",
+                    "src": "437:7:0"
+                  }
+                ],
+                "id": 25,
+                "name": "VariableDeclaration",
+                "src": "437:23:0"
+              },
+              {
+                "attributes": {
+                  "constant": false,
+                  "name": "settlementPeriod",
+                  "scope": 32,
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "type": "uint256",
+                  "value": null,
+                  "visibility": "internal"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "name": "uint256",
+                      "type": "uint256"
+                    },
+                    "id": 26,
+                    "name": "ElementaryTypeName",
+                    "src": "471:7:0"
+                  }
+                ],
+                "id": 27,
+                "name": "VariableDeclaration",
+                "src": "471:24:0"
+              },
+              {
+                "attributes": {
+                  "constant": false,
+                  "name": "validUntil",
+                  "scope": 32,
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "type": "uint256",
+                  "value": null,
+                  "visibility": "internal"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "name": "uint256",
+                      "type": "uint256"
+                    },
+                    "id": 28,
+                    "name": "ElementaryTypeName",
+                    "src": "505:7:0"
+                  }
+                ],
+                "id": 29,
+                "name": "VariableDeclaration",
+                "src": "505:18:0"
+              },
+              {
+                "attributes": {
+                  "constant": false,
+                  "name": "state",
+                  "scope": 32,
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "type": "enum BidiBroker.ChannelState",
+                  "value": null,
+                  "visibility": "internal"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "contractScope": null,
+                      "name": "ChannelState",
+                      "referencedDeclaration": 8,
+                      "type": "enum BidiBroker.ChannelState"
+                    },
+                    "id": 30,
+                    "name": "UserDefinedTypeName",
+                    "src": "534:12:0"
+                  }
+                ],
+                "id": 31,
+                "name": "VariableDeclaration",
+                "src": "534:18:0"
+              }
+            ],
+            "id": 32,
+            "name": "StructDefinition",
+            "src": "324:235:0"
+          },
+          {
+            "attributes": {
+              "constant": false,
+              "name": "channels",
+              "scope": 63,
+              "stateVariable": true,
+              "storageLocation": "default",
+              "type": "mapping(bytes32 => struct BidiBroker.PaymentChannel storage ref)",
+              "value": null,
+              "visibility": "public"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "type": "mapping(bytes32 => struct BidiBroker.PaymentChannel storage ref)"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "name": "bytes32",
+                      "type": "bytes32"
+                    },
+                    "id": 33,
+                    "name": "ElementaryTypeName",
+                    "src": "573:7:0"
+                  },
+                  {
+                    "attributes": {
+                      "contractScope": null,
+                      "name": "PaymentChannel",
+                      "referencedDeclaration": 32,
+                      "type": "struct BidiBroker.PaymentChannel storage pointer"
+                    },
+                    "id": 34,
+                    "name": "UserDefinedTypeName",
+                    "src": "584:14:0"
+                  }
+                ],
+                "id": 35,
+                "name": "Mapping",
+                "src": "565:34:0"
+              }
+            ],
+            "id": 36,
+            "name": "VariableDeclaration",
+            "src": "565:50:0"
+          },
+          {
+            "attributes": {
+              "constant": false,
+              "name": "settlements",
+              "scope": 63,
+              "stateVariable": true,
+              "storageLocation": "default",
+              "type": "mapping(bytes32 => struct BidiBroker.Settlement storage ref)",
+              "value": null,
+              "visibility": "public"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "type": "mapping(bytes32 => struct BidiBroker.Settlement storage ref)"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "name": "bytes32",
+                      "type": "bytes32"
+                    },
+                    "id": 37,
+                    "name": "ElementaryTypeName",
+                    "src": "629:7:0"
+                  },
+                  {
+                    "attributes": {
+                      "contractScope": null,
+                      "name": "Settlement",
+                      "referencedDeclaration": 17,
+                      "type": "struct BidiBroker.Settlement storage pointer"
+                    },
+                    "id": 38,
+                    "name": "UserDefinedTypeName",
+                    "src": "640:10:0"
+                  }
+                ],
+                "id": 39,
+                "name": "Mapping",
+                "src": "621:30:0"
+              }
+            ],
+            "id": 40,
+            "name": "VariableDeclaration",
+            "src": "621:49:0"
+          },
+          {
+            "attributes": {
+              "constant": false,
+              "name": "chainId",
+              "scope": 63,
+              "stateVariable": true,
+              "storageLocation": "default",
+              "type": "uint32",
+              "value": null,
+              "visibility": "internal"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "name": "uint32",
+                  "type": "uint32"
+                },
+                "id": 41,
+                "name": "ElementaryTypeName",
+                "src": "677:6:0"
+              }
+            ],
+            "id": 42,
+            "name": "VariableDeclaration",
+            "src": "677:14:0"
+          },
+          {
+            "attributes": {
+              "constant": false,
+              "name": "id",
+              "scope": 63,
+              "stateVariable": true,
+              "storageLocation": "default",
+              "type": "uint256",
+              "value": null,
+              "visibility": "internal"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "name": "uint256",
+                  "type": "uint256"
+                },
+                "id": 43,
+                "name": "ElementaryTypeName",
+                "src": "697:7:0"
+              }
+            ],
+            "id": 44,
+            "name": "VariableDeclaration",
+            "src": "697:10:0"
+          },
+          {
+            "attributes": {
+              "anonymous": false,
+              "name": "DidCreateChannel"
+            },
+            "children": [
+              {
+                "children": [
+                  {
+                    "attributes": {
+                      "constant": false,
+                      "indexed": false,
+                      "name": "channelId",
+                      "scope": 48,
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "type": "bytes32",
+                      "value": null,
+                      "visibility": "internal"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "name": "bytes32",
+                          "type": "bytes32"
+                        },
+                        "id": 45,
+                        "name": "ElementaryTypeName",
+                        "src": "737:7:0"
+                      }
+                    ],
+                    "id": 46,
+                    "name": "VariableDeclaration",
+                    "src": "737:17:0"
+                  }
+                ],
+                "id": 47,
+                "name": "ParameterList",
+                "src": "736:19:0"
+              }
+            ],
+            "id": 48,
+            "name": "EventDefinition",
+            "src": "714:42:0"
+          },
+          {
+            "attributes": {
+              "constant": false,
+              "implemented": true,
+              "isConstructor": false,
+              "modifiers": [
+                null
+              ],
+              "name": "Broker",
+              "payable": false,
+              "scope": 63,
+              "stateMutability": "nonpayable",
+              "superFunction": null,
+              "visibility": "public"
+            },
+            "children": [
+              {
+                "children": [
+                  {
+                    "attributes": {
+                      "constant": false,
+                      "name": "_chainId",
+                      "scope": 62,
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "type": "uint32",
+                      "value": null,
+                      "visibility": "internal"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "name": "uint32",
+                          "type": "uint32"
+                        },
+                        "id": 49,
+                        "name": "ElementaryTypeName",
+                        "src": "778:6:0"
+                      }
+                    ],
+                    "id": 50,
+                    "name": "VariableDeclaration",
+                    "src": "778:15:0"
+                  }
+                ],
+                "id": 51,
+                "name": "ParameterList",
+                "src": "777:17:0"
+              },
+              {
+                "attributes": {
+                  "parameters": [
+                    null
+                  ]
+                },
+                "children": [],
+                "id": 52,
+                "name": "ParameterList",
+                "src": "802:0:0"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "attributes": {
+                          "argumentTypes": null,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "operator": "=",
+                          "type": "uint32"
+                        },
+                        "children": [
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "overloadedDeclarations": [
+                                null
+                              ],
+                              "referencedDeclaration": 42,
+                              "type": "uint32",
+                              "value": "chainId"
+                            },
+                            "id": 53,
+                            "name": "Identifier",
+                            "src": "812:7:0"
+                          },
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "overloadedDeclarations": [
+                                null
+                              ],
+                              "referencedDeclaration": 50,
+                              "type": "uint32",
+                              "value": "_chainId"
+                            },
+                            "id": 54,
+                            "name": "Identifier",
+                            "src": "822:8:0"
+                          }
+                        ],
+                        "id": 55,
+                        "name": "Assignment",
+                        "src": "812:18:0"
+                      }
+                    ],
+                    "id": 56,
+                    "name": "ExpressionStatement",
+                    "src": "812:18:0"
+                  },
+                  {
+                    "children": [
+                      {
+                        "attributes": {
+                          "argumentTypes": null,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "operator": "=",
+                          "type": "uint256"
+                        },
+                        "children": [
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "overloadedDeclarations": [
+                                null
+                              ],
+                              "referencedDeclaration": 44,
+                              "type": "uint256",
+                              "value": "id"
+                            },
+                            "id": 57,
+                            "name": "Identifier",
+                            "src": "840:2:0"
+                          },
+                          {
+                            "attributes": {
+                              "argumentTypes": null,
+                              "hexvalue": "30",
+                              "isConstant": false,
+                              "isLValue": false,
+                              "isPure": true,
+                              "lValueRequested": false,
+                              "subdenomination": null,
+                              "token": "number",
+                              "type": "int_const 0",
+                              "value": "0"
+                            },
+                            "id": 58,
+                            "name": "Literal",
+                            "src": "845:1:0"
+                          }
+                        ],
+                        "id": 59,
+                        "name": "Assignment",
+                        "src": "840:6:0"
+                      }
+                    ],
+                    "id": 60,
+                    "name": "ExpressionStatement",
+                    "src": "840:6:0"
+                  }
+                ],
+                "id": 61,
+                "name": "Block",
+                "src": "802:51:0"
+              }
+            ],
+            "id": 62,
+            "name": "FunctionDefinition",
+            "src": "762:91:0"
+          }
+        ],
+        "id": 63,
+        "name": "ContractDefinition",
+        "src": "93:762:0"
+      }
+    ],
+    "id": 64,
+    "name": "SourceUnit",
+    "src": "0:856:0"
+  },
+  "compiler": {
+    "name": "solc",
+    "version": "0.4.18+commit.9cf6e910.Emscripten.clang"
+  },
+  "networks": {},
+  "schemaVersion": "1.0.1",
+  "updatedAt": "2017-12-18T13:36:04.639Z"
+}

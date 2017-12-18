@@ -3,7 +3,7 @@ pragma solidity ^0.4.11;
 import "zeppelin-solidity/contracts/lifecycle/Destructible.sol";
 
 
-contract BidirectionalBroker is Destructible {
+contract BidiBroker is Destructible {
     enum ChannelState { Open, Settling, Settled }
 
     struct Settlement {

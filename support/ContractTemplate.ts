@@ -62,6 +62,10 @@ export default class ContractTemplate {
         if (abi.outputs.length === 1) {
           abi.singleReturnValue = true
         }
+        abi.inputs = abi.inputs.map(input => {
+          input.name = input.name ? input.name : 'index'
+          return input
+        })
         return abi
       })
       let getters = methods.filter((abi: MethodAbi) => abi.constant)

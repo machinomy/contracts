@@ -18,7 +18,7 @@
   },
   "scripts": {
     "support:build": "tsc --project support/tsconfig.json",
-    "support:wrap": "yarn support:build && node support/wrap.js 'build/contracts/@(Broker|TokenBroker|ERC20).json' --output build/wrappers",
+    "support:wrap": "yarn support:build && node support/wrap.js 'build/contracts/@(Broker|TokenBroker|BidiBroker|ERC20).json' --output build/wrappers",
     "truffle:test": "run-with-testrpc --networkId 999 --mnemonic 'testtest' --unlock 0 'truffle test ./test/*.test.js'",
     "truffle:migrate": "truffle migrate",
     "truffle:migrate:ropsten": "truffle migrate --network ropsten",
