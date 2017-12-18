@@ -6,12 +6,10 @@
   "types": "src/index.d.ts",
   "files": [
     "build/",
-    "contracts/",
-    "helpers/",
-    "migrations/",
-    "test/",
-    "types/",
-    "src/"
+    "index.ts",
+    "index.js",
+    "index.js.map",
+    "index.d.ts"
   ],
   "directories": {
     "test": "test"
@@ -23,10 +21,11 @@
     "truffle:migrate": "truffle migrate",
     "truffle:migrate:ropsten": "truffle migrate --network ropsten",
     "test": "yarn run build && yarn run truffle:test",
-    "sollint": "solium -d contracts/",
     "prepare": "yarn build && yarn lint",
     "build": "yarn run support:wrap && tsc --project tsconfig.json",
-    "lint": "tslint -t stylish --type-check -p '.'"
+    "lint:typescript": "tslint --format stylish --project .",
+    "lint:solidity": "solium -d contracts/",
+    "lint": "yarn lint:solidity && yarn lint:typescript"
   },
   "repository": {
     "type": "git",

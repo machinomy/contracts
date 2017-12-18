@@ -5,10 +5,10 @@ import * as abi from 'ethereumjs-abi'
 const BN = require('bn.js')
 import BigNumber from 'bignumber.js'
 
-import Broker from '../build/wrappers/Broker'
-import TokenBroker from '../build/wrappers/TokenBroker'
-import ERC20 from '../build/wrappers/ERC20'
-import BidiBroker from '../build/wrappers/BidiBroker'
+import Broker from './build/wrappers/Broker'
+import TokenBroker from './build/wrappers/TokenBroker'
+import ERC20 from './build/wrappers/ERC20'
+import BidiBroker from './build/wrappers/BidiBroker'
 
 export {
   Broker,

@@ -1,9 +1,9 @@
 import * as Web3 from 'web3'
 import * as chai from 'chai'
 import * as asPromised from 'chai-as-promised'
-import { BidiBroker } from '../src'
-import BigNumber from "bignumber.js";
-import {getNetwork} from "./support";
+import { BidiBroker } from '../index'
+import BigNumber from 'bignumber.js'
+import { getNetwork } from './support'
 
 chai.use(asPromised)
 

@@ -50,7 +50,7 @@ contract BidiBroker is Destructible {
             msg.value,
             0,
             settlementPeriod,
-            now + duration,
+            now + duration, // solium-disable-line
             ChannelState.Open);
 
         DidCreateChannel(channelId);
@@ -82,15 +82,36 @@ contract BidiBroker is Destructible {
             (channel.sender == signor || channel.receiver == signor);
     }
 
-    function recoverSignor(bytes32 channelId, uint32 paymentId, uint256 payment, uint8 v, bytes32 r, bytes32 s) public constant returns(address) {
+    function recoverSignor(
+        bytes32 channelId,
+        uint32 paymentId,
+        uint256 payment,
+        uint8 v,
+        bytes32 r,
+        bytes32 s) public constant returns(address)
+    {
         var channel = channels[channelId];
         bytes memory prefix = "\x19Ethereum Signed Message:\n32";
         bytes32 prefixedHash = keccak256(prefix, keccak256(channelId, payment, address(this), chainId));
         return ecrecover(prefixedHash, v, r, s);
     }
 
-    function claim(bytes32 channelId, uint32 paymentId, uint256 payment, uint8 v, bytes32 r, bytes32 s) public {
-        var signor = recoverSignor(channelId, paymentId, payment, v, r, s);
+    function claim(
+        bytes32 channelId,
+        uint32 paymentId,
+        uint256 payment,
+        uint8 v,
+        bytes32 r,
+        bytes32 s) public
+    {
+        var signor = recoverSignor(
+            channelId,
+            paymentId,
+            payment,
+            v,
+            r,
+            s
+        );
         require(canClaim(channelId, signor));
         var channel = channels[channelId];
         if (channel.state == ChannelState.Open) {

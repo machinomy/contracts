@@ -1,9 +1,9 @@
 import Web3 = require('web3')
 import chai = require('chai')
-import { TokenBroker } from '../src'
+import { TokenBroker } from '../index'
 import BigNumber from 'bignumber.js'
 import { ERC20Example, getNetwork } from './support'
-import { sign, paymentDigest } from '../src/index'
+import { sign, paymentDigest } from '../index'
 
 const expect = chai.expect
 
