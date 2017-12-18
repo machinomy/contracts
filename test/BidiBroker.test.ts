@@ -19,7 +19,7 @@ contract('BidiBroker', accounts => {
 
   const createChannel = async (instance: BidiBroker.Contract) => {
     let options = { value: delta, from: sender }
-    const log = await instance.createChannel(receiver, new BigNumber(100), new BigNumber(1), options)
+    const log = await instance.createChannel(receiver, new BigNumber(100), new BigNumber(0), options)
     return log.logs[0]
   }
 
@@ -135,6 +135,29 @@ contract('BidiBroker', accounts => {
 
       expect(logDeposit.logs[0].event).to.equal('DidDeposit')
       expect(endSenderDeposit).to.deep.equal(startSenderDeposit)
+    })
+  })
+
+  describe('deposit by third party', () => {
+    // Should not happen
+  })
+
+  describe('claim', () => {
+    describe('by sender first', () => {
+      it('set state to Settling', async () => {
+        let instance = await contractDeployed()
+        const event = await createChannel(instance)
+
+        let startBalance = web3.eth.getBalance(instance.address)
+
+        const channelId = event.args.channelId
+        const logDeposit = await instance.deposit(channelId, {from: sender, value: delta})
+
+        const endBalance = web3.eth.getBalance(instance.address)
+
+        expect(logDeposit.logs[0].event).to.equal('DidDeposit')
+        expect(endBalance).to.deep.equal(startBalance.plus(delta))
+      })
     })
   })
 })
