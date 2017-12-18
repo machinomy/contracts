@@ -76,7 +76,7 @@ contract('TokenBroker', async accounts => {
     const s = '0x' + signature.s.toString('hex')
 
     const startReceiverBalance = await token.balanceOf(receiver)
-    await broker.claim(channelId, startChannelValue, new BigNumber(v), r, s, {from: receiver, gas: 200000})
+    await broker.claim(channelId, startChannelValue, new BigNumber(v), r, s, {from: receiver})
     const newReceiverBalance = await token.balanceOf(receiver)
 
     expect(newReceiverBalance).to.deep.equal(startReceiverBalance.plus(startChannelValue))
@@ -118,7 +118,7 @@ contract('TokenBroker', async accounts => {
     const s = '0x' + signature.s.toString('hex')
 
     const balanceBefore = await token.balanceOf(receiver)
-    await broker.claim(channelId, startChannelValue, Number(v), r, s, {from: receiver, gas: 90000})
+    await broker.claim(channelId, startChannelValue, Number(v), r, s, {from: receiver})
     const balanceAfter = await token.balanceOf(receiver)
 
     expect(balanceAfter).to.deep.equal(balanceBefore.plus(startChannelValue))

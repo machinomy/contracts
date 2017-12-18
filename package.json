@@ -24,7 +24,7 @@
     "truffle:migrate:ropsten": "truffle migrate --network ropsten",
     "test": "yarn run build && yarn run truffle:test",
     "sollint": "solium -d contracts/",
-    "prepare": "yarn lint && yarn build",
+    "prepare": "yarn build && yarn lint",
     "build": "yarn run support:wrap && tsc --project tsconfig.json",
     "lint": "tslint -t stylish --type-check -p '.'"
   },
