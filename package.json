@@ -26,7 +26,7 @@
     "sollint": "solium -d contracts/",
     "prepare": "yarn lint && yarn build",
     "build": "yarn run support:wrap && tsc --project tsconfig.json",
-    "lint": "tslint -t stylish --type-check -p '.'",
+    "lint": "tslint -t stylish --type-check -p '.'"
   },
   "repository": {
     "type": "git",
