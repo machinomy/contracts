@@ -31,10 +31,46 @@ contract BidiBroker is Destructible {
     uint32 chainId;
     uint256 id;
 
-    event DidCreateChannel(bytes32 channelId);
+    event DidCreateChannel(bytes32 indexed channelId);
+    event DidDeposit(bytes32 indexed channelId);
 
-    function Broker(uint32 _chainId) public {
+    function BidiBroker(uint32 _chainId) public {
         chainId = _chainId;
         id = 0;
+    }
+
+    function createChannel(address receiver, uint32 duration, uint32 settlementPeriod) public payable returns(bytes32) {
+        var channelId = keccak256(block.number + id++);
+        var sender = msg.sender;
+        channels[channelId] = PaymentChannel(
+            sender,
+            receiver,
+            msg.value,
+            0,
+            settlementPeriod,
+            now + duration,
+            ChannelState.Open);
+
+        DidCreateChannel(channelId);
+
+        return channelId;
+    }
+
+    function deposit(bytes32 channelId) public payable {
+        require(canDeposit(msg.sender, channelId));
+
+        var channel = channels[channelId];
+        if (channel.sender == msg.sender) {
+            channel.senderDeposit += msg.value;
+        } else if (channel.receiver == msg.sender) {
+            channel.receiverDeposit += msg.value;
+        }
+
+        DidDeposit(channelId);
+    }
+
+    function canDeposit(address sender, bytes32 channelId) public constant returns(bool) {
+        var channel = channels[channelId];
+        return channel.state == ChannelState.Open && (channel.sender == sender || channel.receiver == sender);
     }
 }
