@@ -23,8 +23,19 @@ contract('Broker', accounts => {
     return log.logs[0]
   }
 
+  let _instance: Broker.Contract | null = null
+  const contractDeployed = async () => {
+    if (_instance) {
+      return _instance
+    } else {
+      let networkId = await getNetwork(web3)
+      _instance = await contract.new(networkId, {gas: 2000000})
+      return _instance
+    }
+  }
+
   it('create channel', async () => {
-    let instance = await contract.deployed()
+    let instance = await contractDeployed()
     let event = await createChannel(instance)
 
     expect(event.event).to.equal('DidCreateChannel')
@@ -32,7 +43,7 @@ contract('Broker', accounts => {
   })
 
   it('deposit', async () => {
-    let instance = await contract.deployed()
+    let instance = await contractDeployed()
     const event = await createChannel(instance)
 
     let startBalance = web3.eth.getBalance(instance.address)
@@ -47,7 +58,7 @@ contract('Broker', accounts => {
   })
 
   it('claim by receiver', async () => {
-    let instance = await contract.deployed()
+    let instance = await contractDeployed()
     const event = await createChannel(instance)
 
     const channelId = event.args.channelId
@@ -65,7 +76,7 @@ contract('Broker', accounts => {
   })
 
   it('settle by sender', async () => {
-    let instance = await contract.deployed()
+    let instance = await contractDeployed()
 
     const didCreateEvent = await createChannel(instance)
     const channelId = didCreateEvent.args.channelId
@@ -82,7 +93,7 @@ contract('Broker', accounts => {
   })
 
   it('settle by sender, then by receiver', async () => {
-    let instance = await contract.deployed()
+    let instance = await contractDeployed()
 
     const didCreateEvent = await createChannel(instance)
     const channelId = didCreateEvent.args.channelId
