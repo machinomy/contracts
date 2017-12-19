@@ -43,10 +43,10 @@ export function paymentDigest (channelId: string, value: BigNumber, contractAddr
   return util.bufferToHex(digest)
 }
 
-export function bidiPaymentDigest (channelId: string, value: BigNumber, paymentId: number, contractAddress: string, chainId: number): string {
+export function bidiPaymentDigest (channelId: string, nonce: number, payment: number|BigNumber, contractAddress: string, chainId: number): string {
   let digest = abi.soliditySHA3(
-    ['bytes32', 'uint256', 'address', 'uint32'],
-    [channelId.toString(), new BigNumber(value).toString(), new BN(contractAddress, 16), chainId]
+    ['bytes32', 'uint32', 'uint256', 'address', 'uint32'],
+    [channelId, nonce, payment.toString(), contractAddress, chainId]
   )
   return util.bufferToHex(digest)
 }

@@ -1,7 +1,7 @@
 import Web3 = require('web3')
 import { TransactionResult } from 'truffle-contract'
 import BigNumber from 'bignumber.js'
-const contract = require('truffle-contract')
+import * as truffle from 'truffle-contract'
 
 export function getNetwork (web3: Web3): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -28,7 +28,7 @@ export namespace ERC20Example {
   }
 
   export const deploy = function (provider?: Web3.Provider, opts?: Web3.TxData): Promise<Contract> {
-    let instance = contract(Json)
+    let instance = truffle<Contract>(Json)
     if (provider) {
       instance.setProvider(provider)
     }
@@ -36,10 +36,16 @@ export namespace ERC20Example {
   }
 
   export function deployed (provider?: Web3.Provider): Promise<Contract> {
-    let instance = contract(Json)
+    let instance = truffle<Contract>(Json)
     if (provider) {
       instance.setProvider(provider)
     }
     return instance.deployed()
+  }
+}
+
+declare global {
+  export var artifacts: {
+    require <A>(name: string): truffle.TruffleContract<A>
   }
 }

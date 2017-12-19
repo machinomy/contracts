@@ -2,6 +2,10 @@ pragma solidity ^0.4.11;
 
 import "zeppelin-solidity/contracts/lifecycle/Destructible.sol";
 import "zeppelin-solidity/contracts/math/SafeMath.sol";
+import "zeppelin-solidity/contracts/ECRecovery.sol";
+
+// @title Bi-directional payment channels broker
+// @author Sergey Ukustov <sergey.ukustov@machinomy.com>
 
 
 contract BidiBroker is Destructible {
@@ -10,7 +14,7 @@ contract BidiBroker is Destructible {
     enum ChannelState { Open, Settling, Settled }
 
     struct Settlement {
-        uint32 paymentId;
+        uint32 nonce;
         uint256 toSender;
         uint256 toReceiver;
     }
@@ -51,30 +55,49 @@ contract BidiBroker is Destructible {
             0,
             settlementPeriod,
             now + duration, // solium-disable-line
-            ChannelState.Open);
+            ChannelState.Open
+        );
 
         DidCreateChannel(channelId);
 
         return channelId;
     }
 
-    function deposit(bytes32 channelId) public payable {
-        require(canDeposit(msg.sender, channelId));
+    //** Deposit functions. Let contract client decide what to call **//
 
+    function canSenderDeposit(bytes32 channelId, address sender) public constant returns(bool) {
         var channel = channels[channelId];
-        if (channel.sender == msg.sender) {
-            channel.senderDeposit = channel.senderDeposit.add(msg.value);
-        } else if (channel.receiver == msg.sender) {
-            channel.receiverDeposit = channel.receiverDeposit.add(msg.value);
-        }
+        return (channel.sender == sender && channel.state == ChannelState.Open);
+    }
 
+    function senderDeposit(bytes32 channelId) public payable {
+        require(canSenderDeposit(channelId, msg.sender));
+        var channel = channels[channelId];
+        channel.senderDeposit = channel.senderDeposit.add(msg.value);
         DidDeposit(channelId);
     }
 
-    function canDeposit(address sender, bytes32 channelId) public constant returns(bool) {
+    function canReceiverDeposit(bytes32 channelId, address receiver) public constant returns(bool) {
         var channel = channels[channelId];
-        return channel.state == ChannelState.Open && (channel.sender == sender || channel.receiver == sender);
+        return (channel.receiver == receiver && channel.state == ChannelState.Open);
     }
+
+    function receiverDeposit(bytes32 channelId) public payable {
+        require(canReceiverDeposit(channelId, msg.sender));
+        var channel = channels[channelId];
+        channel.receiverDeposit = channel.receiverDeposit.add(msg.value);
+        DidDeposit(channelId);
+    }
+
+    //** Ancillary **//
+
+    function signatory(bytes32 channelId, uint32 nonce, uint256 payment, bytes signature) public constant returns(address) {
+        bytes memory prefix = "\x19Ethereum Signed Message:\n32";
+        bytes32 hash = keccak256(prefix, keccak256(channelId, nonce, payment, address(this), chainId));
+        return ECRecovery.recover(hash, signature);
+    }
+
+    //---------------//
 
     function canClaim(bytes32 channelId, address signor) public constant returns(bool) {
         var channel = channels[channelId];
@@ -84,21 +107,20 @@ contract BidiBroker is Destructible {
 
     function recoverSignor(
         bytes32 channelId,
-        uint32 paymentId,
+        uint32 nonce,
         uint256 payment,
         uint8 v,
         bytes32 r,
         bytes32 s) public constant returns(address)
     {
-        var channel = channels[channelId];
         bytes memory prefix = "\x19Ethereum Signed Message:\n32";
-        bytes32 prefixedHash = keccak256(prefix, keccak256(channelId, payment, address(this), chainId));
+        bytes32 prefixedHash = keccak256(prefix, keccak256(channelId, nonce, payment, address(this), chainId));
         return ecrecover(prefixedHash, v, r, s);
     }
 
     function claim(
         bytes32 channelId,
-        uint32 paymentId,
+        uint32 nonce,
         uint256 payment,
         uint8 v,
         bytes32 r,
@@ -106,7 +128,7 @@ contract BidiBroker is Destructible {
     {
         var signor = recoverSignor(
             channelId,
-            paymentId,
+            nonce,
             payment,
             v,
             r,
@@ -116,14 +138,14 @@ contract BidiBroker is Destructible {
         var channel = channels[channelId];
         if (channel.state == ChannelState.Open) {
             if (channel.sender == signor) {
-                settlements[channelId] = Settlement(paymentId, 0, payment);
+                settlements[channelId] = Settlement(nonce, 0, payment);
             } else if (channel.receiver == signor) {
-                settlements[channelId] = Settlement(paymentId, payment, 0);
+                settlements[channelId] = Settlement(nonce, payment, 0);
             }
             channel.state = ChannelState.Settling;
         } else if (channel.state == ChannelState.Settling) {
             var settlement = settlements[channelId];
-            require(paymentId > settlement.paymentId);
+            require(nonce > settlement.nonce);
             var total = channel.senderDeposit.add(channel.receiverDeposit);
             if (signor == channel.sender && settlement.toReceiver == 0) {
                 settlement.toReceiver = payment;

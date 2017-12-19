@@ -2,9 +2,9 @@ import { BigNumber } from 'bignumber.js'
 import * as Web3 from 'web3'
 import * as truffle from 'truffle-contract'
 
-const ARTIFACT = require('{{relativeArtifactPath}}')
-
 export namespace {{contractName}} {
+  export const ARTIFACT = require('{{relativeArtifactPath}}')
+
   export interface Contract {
     address: string
 
