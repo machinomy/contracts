@@ -1,10 +1,10 @@
 import * as Web3 from 'web3'
 import * as chai from 'chai'
 import * as asPromised from 'chai-as-promised'
-import { Broker } from '../index'
+import { Broker } from '../src/index'
 import BigNumber from 'bignumber.js'
 import { getNetwork } from './support'
-import { sign, paymentDigest } from '../index'
+import { sign, paymentDigest } from '../src/index'
 
 chai.use(asPromised)
 

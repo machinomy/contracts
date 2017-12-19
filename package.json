@@ -6,10 +6,7 @@
   "types": "src/index.d.ts",
   "files": [
     "build/",
-    "index.ts",
-    "index.js",
-    "index.js.map",
-    "index.d.ts"
+    "src/"
   ],
   "directories": {
     "test": "test"
