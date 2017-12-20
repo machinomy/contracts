@@ -10,13 +10,22 @@ chai.use(asPromised)
 
 const assert = chai.assert
 
-const web3 = (global as any).web3 as Web3;
+const web3 = (global as any).web3 as Web3
 
 contract('BidiBroker', accounts => {
   const sender = accounts[0]
   const receiver = accounts[1]
   const contract = artifacts.require<BidiBroker.Contract>("BidiBroker.sol")
   const delta = web3.toWei(1, 'ether')
+
+  const createSignature = async (channelId: string, nonce: number, _payment: number|BigNumber, signatory: string): Promise<string> => {
+    let instance = await contract.deployed()
+    let payment = new BigNumber(_payment)
+    let address = instance.address
+    let chainId = await getNetwork(web3)
+    let hash = bidiPaymentDigest(channelId, nonce, payment, address, chainId)
+    return web3.eth.sign(signatory, hash)
+  }
 
   const createChannel = async (instance: BidiBroker.Contract) => {
     let options = { value: delta, from: sender }
@@ -55,7 +64,7 @@ contract('BidiBroker', accounts => {
 
     specify('not if settling')
 
-    specify('not if absent', async () => {
+    specify('not if absent channel', async () => {
       let instance = await contract.deployed()
       let channelId = '0xdeadbeaf'
       let canSenderDeposit = await instance.canSenderDeposit(channelId, sender)
@@ -64,7 +73,7 @@ contract('BidiBroker', accounts => {
   })
 
   describe('senderDeposit', () => {
-    specify('if channel is open and is sender', async () => {
+    specify('add to sender deposit', async () => {
       let instance = await contract.deployed()
       let event = await createChannel(instance)
       let channelId = event.args.channelId
@@ -83,7 +92,7 @@ contract('BidiBroker', accounts => {
 
     specify('not if settling')
 
-    specify('not if absent', async () => {
+    specify('not if channel absent', async () => {
       let instance = await contract.deployed()
       let channelId = '0xdeadbeaf'
       return assert.isRejected(instance.senderDeposit(channelId, {from: sender, value: delta}))
@@ -91,7 +100,7 @@ contract('BidiBroker', accounts => {
   })
 
   describe('receiverDeposit', () => {
-    specify('if channel is open and is sender', async () => {
+    specify('add to receiver deposit', async () => {
       let instance = await contract.deployed()
       let event = await createChannel(instance)
       let channelId = event.args.channelId
@@ -117,18 +126,82 @@ contract('BidiBroker', accounts => {
     })
   })
 
-  describe('recoverSigner', () => {
-    specify('recovers address', async () => {
+  describe('signatory', () => {
+    specify('recover address', async () => {
       let instance = await contract.deployed()
       let channelId = '0xdeadbeaf'
       let nonce = 10
       let payment = new BigNumber(10000)
-      let address = instance.address
-      let chainId = await getNetwork(web3)
-      let hash = bidiPaymentDigest(channelId, nonce, payment, address, chainId)
-      let signature = web3.eth.sign(sender, hash)
+
+      let signature = await createSignature(channelId, nonce, payment, sender)
       let signatory = await instance.signatory(channelId, nonce, payment, signature)
       assert.equal(signatory, sender)
+    })
+  })
+
+  describe('receiverUpdateBalance', () => {
+    let nonce = 10
+    let payment = new BigNumber(10000)
+
+    specify('update balance to receiver', async () => {
+      let instance = await contract.deployed()
+      let event = await createChannel(instance)
+      let channelId = event.args.channelId
+
+      let signature = await createSignature(channelId, nonce, payment, sender)
+      let before = (await instance.balances(channelId))[2]
+      await assert.isFulfilled(instance.receiverUpdateBalance(channelId, nonce, payment, signature, {from: receiver}))
+      let after = (await instance.balances(channelId))[2]
+      assert.deepEqual(after, before.add(payment))
+    })
+
+    specify('not if alien', async () => {
+      let instance = await contract.deployed()
+      let event = await createChannel(instance)
+      let channelId = event.args.channelId
+
+      let signature = await createSignature(channelId, nonce, payment, sender)
+      return assert.isRejected(instance.receiverUpdateBalance(channelId, nonce, payment, signature, {from: sender}))
+    })
+
+    specify('not if absent', async () => {
+      let instance = await contract.deployed()
+      let channelId = '0xdeadbeaf'
+      let signature = await createSignature(channelId, nonce, payment, sender)
+      return assert.isRejected(instance.receiverUpdateBalance(channelId, nonce, payment, signature, {from: receiver}))
+    })
+  })
+
+  describe('senderUpdateBalance', () => {
+    let nonce = 10
+    let payment = new BigNumber(10000)
+
+    specify('update balance to receiver', async () => {
+      let instance = await contract.deployed()
+      let event = await createChannel(instance)
+      let channelId = event.args.channelId
+
+      let signature = await createSignature(channelId, nonce, payment, receiver)
+      let before = (await instance.balances(channelId))[1]
+      await assert.isFulfilled(instance.senderUpdateBalance(channelId, nonce, payment, signature, {from: sender}))
+      let after = (await instance.balances(channelId))[1]
+      assert.deepEqual(after, before.add(payment))
+    })
+
+    specify('not if alien', async () => {
+      let instance = await contract.deployed()
+      let event = await createChannel(instance)
+      let channelId = event.args.channelId
+
+      let signature = await createSignature(channelId, nonce, payment, receiver)
+      return assert.isRejected(instance.receiverUpdateBalance(channelId, nonce, payment, signature, {from: receiver}))
+    })
+
+    specify('not if absent', async () => {
+      let instance = await contract.deployed()
+      let channelId = '0xdeadbeaf'
+      let signature = await createSignature(channelId, nonce, payment, receiver)
+      return assert.isRejected(instance.receiverUpdateBalance(channelId, nonce, payment, signature, {from: sender}))
     })
   })
 

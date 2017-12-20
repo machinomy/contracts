@@ -11,9 +11,9 @@ import "zeppelin-solidity/contracts/ECRecovery.sol";
 contract BidiBroker is Destructible {
     using SafeMath for uint256;
 
-    enum ChannelState { Open, Settling, Settled }
+    enum ChannelState { Open, Settling }
 
-    struct Settlement {
+    struct Balance {
         uint32 nonce;
         uint256 toSender;
         uint256 toReceiver;
@@ -32,13 +32,15 @@ contract BidiBroker is Destructible {
     }
 
     mapping(bytes32 => PaymentChannel) public channels;
-    mapping(bytes32 => Settlement) public settlements;
+    mapping(bytes32 => Balance) public balances;
 
     uint32 chainId;
     uint256 id;
 
     event DidCreateChannel(bytes32 indexed channelId);
     event DidDeposit(bytes32 indexed channelId);
+    event DidUpdateBalance(bytes32 indexed channelId, uint32 nonce, uint256 toSender, uint256 toReceiver);
+    event DidStartSettle(bytes32 indexed channelId);
 
     function BidiBroker(uint32 _chainId) public {
         chainId = _chainId;
@@ -87,6 +89,53 @@ contract BidiBroker is Destructible {
         var channel = channels[channelId];
         channel.receiverDeposit = channel.receiverDeposit.add(msg.value);
         DidDeposit(channelId);
+    }
+
+    //** Update balance functions. Let contract client decide what to call **//
+
+    function receiverUpdateBalance(bytes32 channelId, uint32 nonce, uint256 payment, bytes signature) public {
+        var channel = channels[channelId];
+        var balance = balances[channelId];
+
+        var isBiggerNonce = nonce > balance.nonce;
+        var isSignedBySender = channel.sender == signatory(channelId, nonce, payment, signature);
+        var isCalledByReceiver = msg.sender == channel.receiver;
+        require(isCalledByReceiver && isBiggerNonce && isSignedBySender);
+
+        balance.toReceiver = payment;
+        balance.toSender = channel.senderDeposit.add(channel.receiverDeposit).sub(payment);
+        DidUpdateBalance(channelId, nonce, toSender, toReceiver);
+    }
+
+    function senderUpdateBalance(bytes32 channelId, uint32 nonce, uint256 payment, bytes signature) public {
+        var channel = channels[channelId];
+        var balance = balances[channelId];
+
+        require(nonce > balance.nonce && channel.receiver == signatory(channelId, nonce, payment, signature));
+
+        balance.toSender = payment;
+        balance.toReceiver = channel.senderDeposit.add(channel.receiverDeposit).sub(payment);
+        DidUpdateBalance(channelId, nonce, toSender, toReceiver);
+    }
+
+    //** Settle. Let contract client decide what to call **//
+
+    function senderClaim(bytes32 channelId, uint32 nonce, uint256 payment, bytes signature) public {
+        var channel = channels[channelId];
+        require(channel.state == ChannelState.Open);
+        senderUpdateBalance(channelId, nonce, payment, signature);
+
+        channels[channelId].state = ChannelState.Settling;
+        DidStartSettle(channelId);
+    }
+
+    function receiverClaim(bytes32 channelId, uint32 nonce, uint256 payment, bytes signature) public {
+        var channel = channels[channelId];
+        require(channel.state == ChannelState.Open);
+        receiverUpdateBalance(channelId, nonce, payment, signature);
+
+        channels[channelId].state = ChannelState.Settling;
+        DidStartSettle(channelId);
     }
 
     //** Ancillary **//
@@ -138,26 +187,26 @@ contract BidiBroker is Destructible {
         var channel = channels[channelId];
         if (channel.state == ChannelState.Open) {
             if (channel.sender == signor) {
-                settlements[channelId] = Settlement(nonce, 0, payment);
+                balances[channelId] = Balance(nonce, 0, payment);
             } else if (channel.receiver == signor) {
-                settlements[channelId] = Settlement(nonce, payment, 0);
+                balances[channelId] = Balance(nonce, payment, 0);
             }
             channel.state = ChannelState.Settling;
         } else if (channel.state == ChannelState.Settling) {
-            var settlement = settlements[channelId];
-            require(nonce > settlement.nonce);
+            var balance = balances[channelId];
+            require(nonce > balance.nonce);
             var total = channel.senderDeposit.add(channel.receiverDeposit);
-            if (signor == channel.sender && settlement.toReceiver == 0) {
-                settlement.toReceiver = payment;
-                settlement.toSender = total.sub(payment);
-            } else if (signor == channel.receiver && settlement.toSender == 0) {
-                settlement.toSender = payment;
-                settlement.toReceiver = total.sub(payment);
+            if (signor == channel.sender && balance.toReceiver == 0) {
+                balance.toReceiver = payment;
+                balance.toSender = total.sub(payment);
+            } else if (signor == channel.receiver && balance.toSender == 0) {
+                balance.toSender = payment;
+                balance.toReceiver = total.sub(payment);
             }
-            require(channel.receiver.send(settlement.toReceiver));
-            require(channel.sender.send(settlement.toSender));
+            require(channel.receiver.send(balance.toReceiver));
+            require(channel.sender.send(balance.toSender));
             delete channels[channelId];
-            delete settlements[channelId];
+            delete balances[channelId];
         }
     }
 }
