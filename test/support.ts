@@ -46,6 +46,6 @@ export namespace ERC20Example {
 
 declare global {
   export var artifacts: {
-    require <A>(name: string): truffle.TruffleContract<A>
+    require <A> (name: string): truffle.TruffleContract<A>
   }
 }
