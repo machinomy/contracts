@@ -27,7 +27,6 @@ interface PaymentChannel {
   receiver: string
   value: BigNumber
   settlingPeriod: BigNumber,
-  validUntil: BigNumber,
   state: BigNumber
 }
 
@@ -51,7 +50,7 @@ contract('ABroker', accounts => {
 
   async function createChannel (instance: ABroker.Contract): Promise<string> {
     let options = { value: channelValue, from: sender }
-    let log = await instance.open(receiver, 0, new BigNumber(0), options)
+    let log = await instance.open(receiver, 0, options)
     let logEvent = log.logs[0]
     if (ABroker.isDidOpenEvent(logEvent)) {
       return logEvent.args.channelId
@@ -61,8 +60,8 @@ contract('ABroker', accounts => {
   }
 
   async function readChannel (instance: ABroker.Contract, channelId: string): Promise<PaymentChannel> {
-    let [sender, receiver, value, settlingPeriod, validUntil, state] = await instance.channels(channelId)
-    return { sender, receiver, value, settlingPeriod, validUntil, state }
+    let [sender, receiver, value, settlingPeriod, state] = await instance.channels(channelId)
+    return { sender, receiver, value, settlingPeriod, state }
   }
 
   async function paymentDigest (address: string, channelId: string, payment: BigNumber): Promise<string> {
