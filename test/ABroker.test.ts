@@ -93,145 +93,147 @@ contract('ABroker', accounts => {
     })
   }
 
-  describe('sender:createChannel', () => {
-    specify('emit DidOpen event', async () => {
-      let instance = await deployed()
-      let channelId = await createChannel(instance)
-      assert.typeOf(channelId, 'string')
-    })
-
-    specify('increase contract balance', async () => {
-      let instance = await deployed()
-      let startBalance = web3.eth.getBalance(instance.address)
-      await createChannel(instance)
-      let endBalance = web3.eth.getBalance(instance.address)
-      assert.deepEqual(endBalance, startBalance.plus(delta))
-    })
-
-    specify('set channel parameters', async () => {
-      let instance = await deployed()
-      let channelId = await createChannel(instance)
-      let channel = await readChannel(instance, channelId)
-      assert.equal(channel.sender, sender)
-      assert.equal(channel.receiver, receiver)
-      assert(channel.value.eq(delta))
-      assert(channel.state.eq(PaymentChannelState.OPEN))
-    })
-  })
-
-  describe('sender:createChannel -> canClaim', () => {
-    specify('return true', async () => {
-      let instance = await deployed()
-      let channelId = await createChannel(instance)
-
-      let signature = await sign(sender, instance, channelId, delta)
-      let canClaim = await instance.canClaim(channelId, delta, receiver, signature)
-      assert.isTrue(canClaim)
-    })
-
-    specify('not if missing channel', async () => {
-      let instance = await deployed()
-      let channelId = '0xdeadbeaf'
-      let payment = new BigNumber(10)
-
-      let signature = await sign(sender, instance, channelId, payment)
-      let canClaim = await instance.canClaim(channelId, payment, receiver, signature)
-      assert.isFalse(canClaim)
-    })
-
-    specify('not if not receiver', async () => {
-      let instance = await deployed()
-      let channelId = await createChannel(instance)
-      let payment = new BigNumber(10)
-
-      let signature = await sign(sender, instance, channelId, payment)
-      let canClaim = await instance.canClaim(channelId, payment, sender, signature)
-      assert.isFalse(canClaim)
-    })
-
-    specify('not if not signed by sender', async () => {
-      let instance = await deployed()
-      let channelId = await createChannel(instance)
-      let payment = new BigNumber(10)
-
-      let signature = await sign(receiver, instance, channelId, payment)
-      let canClaim = await instance.canClaim(channelId, payment, receiver, signature)
-      assert.isFalse(canClaim)
-    })
-  })
-
-  describe('sender:createChannel -> claim', () => {
-    let payment = new BigNumber(web3.toWei('0.1', 'ether'))
-
-    specify('emit DidClaim event', async () => {
-      let instance = await deployed()
-      let channelId = await createChannel(instance)
-
-      let signature = await sign(sender, instance, channelId, payment)
-      let tx = await instance.claim(channelId, payment, signature, {from: receiver})
-      gasoline.add('emit DidClaim event', 'claim', tx)
-      assert.isTrue(ABroker.isDidClaimEvent(tx.logs[0]))
-    })
-
-    specify('move payment to receiver balance', async () => {
-      let instance = await deployed()
-      let channelId = await createChannel(instance)
-
-      let startBalance = web3.eth.getBalance(receiver)
-
-      let signature = await sign(sender, instance, channelId, payment)
-      let tx = await instance.claim(channelId, payment, signature, {from: receiver})
-      gasoline.add('move payment to receiver balance', 'claim', tx)
-
-      let endBalance = web3.eth.getBalance(receiver)
-
-      let callCost = await transactionPrice(tx)
-      assert.isTrue(endBalance.minus(startBalance).eq(payment.minus(callCost)))
-    })
-
-    specify('move change to sender balance', async () => {
-      let instance = await deployed()
-      let channelId = await createChannel(instance)
-
-      let channelValue = (await readChannel(instance, channelId)).value
-      let change = channelValue.minus(payment)
-
-      let startBalance = web3.eth.getBalance(sender)
-
-      let signature = await sign(sender, instance, channelId, payment)
-      let tx = await instance.claim(channelId, payment, signature, {from: receiver})
-      gasoline.add('move change to sender balance', 'claim', tx)
-
-      let endBalance = web3.eth.getBalance(sender)
-      assert.isTrue(endBalance.minus(startBalance).eq(change))
-    })
-
-    specify('delete channel', async () => {
-      let instance = await deployed()
-      let channelId = await createChannel(instance)
-
-      let signature = await sign(sender, instance, channelId, payment)
-      let tx = await instance.claim(channelId, payment, signature, {from: receiver})
-      gasoline.add('delete channel', 'claim', tx)
-
-      let channel = await readChannel(instance, channelId)
-      assert.equal(channel.sender, '0x0000000000000000000000000000000000000000')
-      assert.equal(channel.receiver, '0x0000000000000000000000000000000000000000')
-      assert.isFalse(await instance.isPresent(channelId))
-    })
-
-    context('payment > channel.value', () => {
-      specify('move channel value to receiver balance', async () => {
+  describe('unidirectional channel', () => {
+    describe('sender:createChannel', () => {
+      specify('emit DidOpen event', async () => {
         let instance = await deployed()
         let channelId = await createChannel(instance)
-        let payment = new BigNumber(web3.toWei('10', 'ether'))
+        assert.typeOf(channelId, 'string')
+      })
+
+      specify('increase contract balance', async () => {
+        let instance = await deployed()
+        let startBalance = web3.eth.getBalance(instance.address)
+        await createChannel(instance)
+        let endBalance = web3.eth.getBalance(instance.address)
+        assert.deepEqual(endBalance, startBalance.plus(delta))
+      })
+
+      specify('set channel parameters', async () => {
+        let instance = await deployed()
+        let channelId = await createChannel(instance)
+        let channel = await readChannel(instance, channelId)
+        assert.equal(channel.sender, sender)
+        assert.equal(channel.receiver, receiver)
+        assert(channel.value.eq(delta))
+        assert(channel.state.eq(PaymentChannelState.OPEN))
+      })
+    })
+
+    describe('sender:createChannel -> canClaim', () => {
+      specify('return true', async () => {
+        let instance = await deployed()
+        let channelId = await createChannel(instance)
+
+        let signature = await sign(sender, instance, channelId, delta)
+        let canClaim = await instance.canClaim(channelId, delta, receiver, signature)
+        assert.isTrue(canClaim)
+      })
+
+      specify('not if missing channel', async () => {
+        let instance = await deployed()
+        let channelId = '0xdeadbeaf'
+        let payment = new BigNumber(10)
+
         let signature = await sign(sender, instance, channelId, payment)
+        let canClaim = await instance.canClaim(channelId, payment, receiver, signature)
+        assert.isFalse(canClaim)
+      })
+
+      specify('not if not receiver', async () => {
+        let instance = await deployed()
+        let channelId = await createChannel(instance)
+        let payment = new BigNumber(10)
+
+        let signature = await sign(sender, instance, channelId, payment)
+        let canClaim = await instance.canClaim(channelId, payment, sender, signature)
+        assert.isFalse(canClaim)
+      })
+
+      specify('not if not signed by sender', async () => {
+        let instance = await deployed()
+        let channelId = await createChannel(instance)
+        let payment = new BigNumber(10)
+
+        let signature = await sign(receiver, instance, channelId, payment)
+        let canClaim = await instance.canClaim(channelId, payment, receiver, signature)
+        assert.isFalse(canClaim)
+      })
+    })
+
+    describe('sender:createChannel -> claim', () => {
+      let payment = new BigNumber(web3.toWei('0.1', 'ether'))
+
+      specify('emit DidClaim event', async () => {
+        let instance = await deployed()
+        let channelId = await createChannel(instance)
+
+        let signature = await sign(sender, instance, channelId, payment)
+        let tx = await instance.claim(channelId, payment, signature, {from: receiver})
+        gasoline.add('emit DidClaim event', 'claim', tx)
+        assert.isTrue(ABroker.isDidClaimEvent(tx.logs[0]))
+      })
+
+      specify('move payment to receiver balance', async () => {
+        let instance = await deployed()
+        let channelId = await createChannel(instance)
 
         let startBalance = web3.eth.getBalance(receiver)
+
+        let signature = await sign(sender, instance, channelId, payment)
         let tx = await instance.claim(channelId, payment, signature, {from: receiver})
+        gasoline.add('move payment to receiver balance', 'claim', tx)
+
         let endBalance = web3.eth.getBalance(receiver)
+
         let callCost = await transactionPrice(tx)
-        assert.isTrue(endBalance.eq(startBalance.plus(delta).minus(callCost)))
+        assert.isTrue(endBalance.minus(startBalance).eq(payment.minus(callCost)))
+      })
+
+      specify('move change to sender balance', async () => {
+        let instance = await deployed()
+        let channelId = await createChannel(instance)
+
+        let channelValue = (await readChannel(instance, channelId)).value
+        let change = channelValue.minus(payment)
+
+        let startBalance = web3.eth.getBalance(sender)
+
+        let signature = await sign(sender, instance, channelId, payment)
+        let tx = await instance.claim(channelId, payment, signature, {from: receiver})
+        gasoline.add('move change to sender balance', 'claim', tx)
+
+        let endBalance = web3.eth.getBalance(sender)
+        assert.isTrue(endBalance.minus(startBalance).eq(change))
+      })
+
+      specify('delete channel', async () => {
+        let instance = await deployed()
+        let channelId = await createChannel(instance)
+
+        let signature = await sign(sender, instance, channelId, payment)
+        let tx = await instance.claim(channelId, payment, signature, {from: receiver})
+        gasoline.add('delete channel', 'claim', tx)
+
+        let channel = await readChannel(instance, channelId)
+        assert.equal(channel.sender, '0x0000000000000000000000000000000000000000')
+        assert.equal(channel.receiver, '0x0000000000000000000000000000000000000000')
+        assert.isFalse(await instance.isPresent(channelId))
+      })
+
+      context('payment > channel.value', () => {
+        specify('move channel value to receiver balance', async () => {
+          let instance = await deployed()
+          let channelId = await createChannel(instance)
+          let payment = new BigNumber(web3.toWei('10', 'ether'))
+          let signature = await sign(sender, instance, channelId, payment)
+
+          let startBalance = web3.eth.getBalance(receiver)
+          let tx = await instance.claim(channelId, payment, signature, {from: receiver})
+          let endBalance = web3.eth.getBalance(receiver)
+          let callCost = await transactionPrice(tx)
+          assert.isTrue(endBalance.eq(startBalance.plus(delta).minus(callCost)))
+        })
       })
     })
   })
