@@ -26,6 +26,7 @@ contract ABroker is Destructible {
     event DidOpen(bytes32 channelId);
     event DidClaim(bytes32 channelId);
     event DidStartSettling(bytes32 channelId);
+    event DidSettle(bytes32 channelId);
 
     function ABroker(uint32 _chainId) public {
         chainId = _chainId;
@@ -46,8 +47,8 @@ contract ABroker is Destructible {
 
     function canStartSettling(bytes32 channelId, address origin) public constant returns(bool) {
         var channel = channels[channelId];
-        var isOpen = channel.state == ChannelState.Open;
-        var isSender = channel.sender == origin;
+        bool isOpen = channel.state == ChannelState.Open;
+        bool isSender = channel.sender == origin;
         return isOpen && isSender;
     }
 
@@ -60,11 +61,26 @@ contract ABroker is Destructible {
         DidStartSettling(channelId);
     }
 
+    function canSettle(bytes32 channelId, address origin) public constant returns(bool) {
+        var channel = channels[channelId];
+        bool isSettling = channel.state == ChannelState.Settling;
+        bool isSender = channel.sender == origin;
+        return isSender && isSettling;
+    }
+
+    function settle(bytes32 channelId) public {
+        require(canSettle(channelId, msg.sender));
+        var channel = channels[channelId];
+        require(channel.sender.send(channel.value));
+
+        DidSettle(channelId);
+    }
+
     function canClaim(bytes32 channelId, uint256 payment, address origin, bytes signature) public constant returns(bool) {
         var channel = channels[channelId];
-        var isReceiver = origin == channel.receiver;
+        bool isReceiver = origin == channel.receiver;
         var hash = signatureDigest(channelId, payment);
-        var isSigned = channel.sender == ECRecovery.recover(hash, signature);
+        bool isSigned = channel.sender == ECRecovery.recover(hash, signature);
 
         return isReceiver && isSigned;
     }

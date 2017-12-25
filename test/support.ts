@@ -5,8 +5,8 @@ import * as truffle from 'truffle-contract'
 
 export const GAS_PRICE = new BigNumber(100000000000)
 
-export async function transactionPrice(transactionResult: truffle.TransactionResult): Promise<BigNumber> {
-  let amount = await transactionResult.receipt.gasUsed
+export async function transactionPrice (transactionResult: truffle.TransactionResult): Promise<BigNumber> {
+  let amount = transactionResult.receipt.gasUsed
   return GAS_PRICE.mul(amount)
 }
 
@@ -37,7 +37,7 @@ export class Gasoline {
     this.items = []
   }
 
-  add(testName: string, name: string, tx: truffle.TransactionResult) {
+  add (testName: string, name: string, tx: truffle.TransactionResult) {
     let item = {
       testName: testName,
       functionCall: name,
