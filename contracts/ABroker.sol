@@ -8,7 +8,7 @@ import "zeppelin-solidity/contracts/ECRecovery.sol";
 // @author Sergey Ukustov <sergey.ukustov@machinomy.com>
 
 
-contract BidiBroker is Destructible {
+contract ABroker is Destructible {
     using SafeMath for uint256;
 
     enum ChannelState { Open, Settling }

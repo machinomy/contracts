@@ -1,10 +1,9 @@
 import * as Web3 from 'web3'
 import * as chai from 'chai'
 import * as asPromised from 'chai-as-promised'
-import {BidiBroker, bidiPaymentDigest, sign} from '../src/index'
+import {ABroker, bidiPaymentDigest, sign} from '../src/index'
 import BigNumber from 'bignumber.js'
 import { getNetwork } from './support'
-import has = Reflect.has;
 
 chai.use(asPromised)
 
@@ -15,7 +14,7 @@ const web3 = (global as any).web3 as Web3
 contract('BidiBroker', accounts => {
   const sender = accounts[0]
   const receiver = accounts[1]
-  const contract = artifacts.require<BidiBroker.Contract>("BidiBroker.sol")
+  const contract = artifacts.require<ABroker.Contract>("BidiBroker.sol")
   const delta = web3.toWei(1, 'ether')
 
   const createSignature = async (channelId: string, nonce: number, _payment: number|BigNumber, signatory: string): Promise<string> => {
@@ -27,7 +26,7 @@ contract('BidiBroker', accounts => {
     return web3.eth.sign(signatory, hash)
   }
 
-  const createChannel = async (instance: BidiBroker.Contract) => {
+  const createChannel = async (instance: ABroker.Contract) => {
     let options = { value: delta, from: sender }
     const log = await instance.createChannel(receiver, new BigNumber(100), new BigNumber(0), options)
     return log.logs[0]

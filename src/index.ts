@@ -8,13 +8,13 @@ import BigNumber from 'bignumber.js'
 import Broker from '../build/wrappers/Broker'
 import TokenBroker from '../build/wrappers/TokenBroker'
 import ERC20 from '../build/wrappers/ERC20'
-import BidiBroker from '../build/wrappers/BidiBroker'
+import ABroker from '../build/wrappers/ABroker'
 
 export {
   Broker,
   TokenBroker,
   ERC20,
-  BidiBroker
+  ABroker
 }
 
 export interface Signature {
