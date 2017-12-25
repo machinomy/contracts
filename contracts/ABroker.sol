@@ -65,7 +65,9 @@ contract ABroker is Destructible {
     function canSettle(bytes32 channelId, address origin) public constant returns(bool) {
         var channel = channels[channelId];
         bool isSender = channel.sender == origin;
-        return isSender && isSettling(channelId);
+        var settling = settlings[channelId];
+        bool isWaitingOver = block.number >= settling.until;
+        return isSender && isSettling(channelId) && isWaitingOver;
     }
 
     function settle(bytes32 channelId) public {

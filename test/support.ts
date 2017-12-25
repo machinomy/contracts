@@ -22,6 +22,18 @@ export function getNetwork (web3: Web3): Promise<number> {
   })
 }
 
+export function getBlock (web3: Web3, number: string|number): Promise<Web3.BlockWithoutTransactionData> {
+  return new Promise((resolve, reject) => {
+    web3.eth.getBlock(number, (error, block) => {
+      if (error) {
+        reject(error)
+      } else {
+        resolve(block)
+      }
+    })
+  })
+}
+
 export interface GasolineEntry {
   testName: string
   functionCall: string
