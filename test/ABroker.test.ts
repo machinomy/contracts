@@ -26,6 +26,8 @@ interface PaymentChannel {
   sender: string
   receiver: string
   value: BigNumber
+  settlingPeriod: BigNumber,
+  validUntil: BigNumber,
   state: BigNumber
 }
 
@@ -49,7 +51,7 @@ contract('ABroker', accounts => {
 
   async function createChannel (instance: ABroker.Contract): Promise<string> {
     let options = { value: channelValue, from: sender }
-    let log = await instance.open(receiver, options)
+    let log = await instance.open(receiver, 0, new BigNumber(0), options)
     let logEvent = log.logs[0]
     if (ABroker.isDidOpenEvent(logEvent)) {
       return logEvent.args.channelId
@@ -59,8 +61,8 @@ contract('ABroker', accounts => {
   }
 
   async function readChannel (instance: ABroker.Contract, channelId: string): Promise<PaymentChannel> {
-    let [sender, receiver, value, state] = await instance.channels(channelId)
-    return { sender, receiver, value, state }
+    let [sender, receiver, value, settlingPeriod, validUntil, state] = await instance.channels(channelId)
+    return { sender, receiver, value, settlingPeriod, validUntil, state }
   }
 
   async function paymentDigest (address: string, channelId: string, payment: BigNumber): Promise<string> {
@@ -268,12 +270,14 @@ contract('ABroker', accounts => {
       })
     })
 
-    describe('sender:createChannel -> startSettling', () => {
+    describe('startSettling', () => {
       specify('change state to Settling', async () => {
         let channelId = await createChannel(instance)
-        await instance.startSettling(channelId, {from: sender})
+        let tx = await instance.startSettling(channelId, {from: sender})
+        console.log(tx)
         let channel = await readChannel(instance, channelId)
-        assert(channel.state.eq(PaymentChannelState.SETTLING))
+        console.log(channel)
+        assert.equal(channel.state.toNumber(), PaymentChannelState.SETTLING)
       })
 
       specify('emit DidStartSettling event', async () => {

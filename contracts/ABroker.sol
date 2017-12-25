@@ -15,6 +15,9 @@ contract ABroker is Destructible {
         address receiver;
         uint256 value;
 
+        uint32 settlingPeriod;
+        uint256 validUntil;
+
         ChannelState state;
     }
 
@@ -33,12 +36,14 @@ contract ABroker is Destructible {
         id = 0;
     }
 
-    function open(address receiver) public payable {
+    function open(address receiver, uint32 settlingPeriod, uint256 validUntil) public payable {
         var channelId = keccak256(block.number + id++);
         channels[channelId] = PaymentChannel(
             msg.sender,
             receiver,
             msg.value,
+            settlingPeriod,
+            validUntil,
             ChannelState.Open
         );
 
