@@ -1,0 +1,134 @@
+{
+  "contract_name": "ABroker",
+  "abi": [
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "receiver",
+          "type": "address"
+        }
+      ],
+      "name": "openChannel",
+      "outputs": [],
+      "payable": true,
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "channels",
+      "outputs": [
+        {
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "name": "receiver",
+          "type": "address"
+        },
+        {
+          "name": "value",
+          "type": "uint256"
+        },
+        {
+          "name": "state",
+          "type": "uint8"
+        }
+      ],
+      "payable": false,
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "destroy",
+      "outputs": [],
+      "payable": false,
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "chainId",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint32"
+        }
+      ],
+      "payable": false,
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "payable": false,
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "_recipient",
+          "type": "address"
+        }
+      ],
+      "name": "destroyAndSend",
+      "outputs": [],
+      "payable": false,
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "name": "_chainId",
+          "type": "uint32"
+        }
+      ],
+      "payable": false,
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "name": "channelId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "DidCreateChannel",
+      "type": "event"
+    }
+  ],
+  "unlinked_binary": "0x6060604052341561000f57600080fd5b60405160208061046d833981016040528080519150505b5b5b60008054600160a060020a03191633600160a060020a03161790555b5b6002805463ffffffff191663ffffffff831617905560006003555b505b6103fc806100716000396000f300606060405236156100805763ffffffff7c01000000000000000000000000000000000000000000000000000000006000350416632abb5e9d81146100855780637a7ebd7b1461009b57806383197ef0146100f65780638da5cb5b1461010b5780639a8a05921461013a578063f2fde38b14610166578063f5074f4114610187575b600080fd5b610099600160a060020a03600435166101a8565b005b34156100a657600080fd5b6100b16004356102cd565b604051600160a060020a0380861682528416602082015260408101839052606081018260008111156100df57fe5b60ff16815260200194505050505060405180910390f35b341561010157600080fd5b610099610306565b005b341561011657600080fd5b61011e610332565b604051600160a060020a03909116815260200160405180910390f35b341561014557600080fd5b61014d610341565b60405163ffffffff909116815260200160405180910390f35b341561017157600080fd5b610099600160a060020a036004351661034d565b005b341561019257600080fd5b610099600160a060020a03600435166103a5565b005b600380546001810190915560009043016040519081526020016040518091039020905060806040519081016040908152600160a060020a0333811683528416602083015234908201526060810160005b905260008281526001602052604090208151815473ffffffffffffffffffffffffffffffffffffffff1916600160a060020a0391909116178155602082015160018201805473ffffffffffffffffffffffffffffffffffffffff1916600160a060020a039290921691909117905560408201518160020155606082015160038201805460ff1916600183600081111561028d57fe5b02179055509050507f091a892cf9ab0e7ebfda38713ce99ca73688bc7e956d7eed3d607c499051efea8160405190815260200160405180910390a15b5050565b60016020819052600091825260409091208054918101546002820154600390920154600160a060020a0393841693909116919060ff1684565b60005433600160a060020a0390811691161461032157600080fd5b600054600160a060020a0316ff5b5b565b600054600160a060020a031681565b60025463ffffffff1681565b60005433600160a060020a0390811691161461036857600080fd5b600160a060020a038116156103a0576000805473ffffffffffffffffffffffffffffffffffffffff1916600160a060020a0383161790555b5b5b50565b60005433600160a060020a039081169116146103c057600080fd5b80600160a060020a0316ff5b5b505600a165627a7a7230582021c98f03acf7673393e8476ed3337b2904459fd59d3fd6d1c579e5f7cf36da650029",
+  "networks": {},
+  "schema_version": "0.0.5",
+  "updated_at": 1514202253962
+}

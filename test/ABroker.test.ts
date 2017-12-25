@@ -1,8 +1,10 @@
 import * as Web3 from 'web3'
+import BigNumber from 'bignumber.js'
+
 import * as chai from 'chai'
 import * as asPromised from 'chai-as-promised'
-import {ABroker, bidiPaymentDigest, sign} from '../src/index'
-import BigNumber from 'bignumber.js'
+
+import { ABroker } from '../src/index'
 import { getNetwork } from './support'
 
 chai.use(asPromised)
@@ -11,221 +13,64 @@ const assert = chai.assert
 
 const web3 = (global as any).web3 as Web3
 
-contract('BidiBroker', accounts => {
-  const sender = accounts[0]
-  const receiver = accounts[1]
-  const contract = artifacts.require<ABroker.Contract>("BidiBroker.sol")
-  const delta = web3.toWei(1, 'ether')
+interface PaymentChannel {
+  sender: string
+  receiver: string
+  value: BigNumber
+  state: BigNumber
+}
 
-  const createSignature = async (channelId: string, nonce: number, _payment: number|BigNumber, signatory: string): Promise<string> => {
-    let instance = await contract.deployed()
-    let payment = new BigNumber(_payment)
-    let address = instance.address
-    let chainId = await getNetwork(web3)
-    let hash = bidiPaymentDigest(channelId, nonce, payment, address, chainId)
-    return web3.eth.sign(signatory, hash)
+contract('ABroker', accounts => {
+  let sender = accounts[0]
+  let receiver = accounts[1]
+  let delta = new BigNumber(web3.toWei(0.1, 'ether'))
+
+  async function deployed (): Promise<ABroker.Contract> {
+    let contract = artifacts.require<ABroker.Contract>('ABroker.sol')
+    if (contract.isDeployed()) {
+      return contract.deployed()
+    } else {
+      let networkId = await getNetwork(web3)
+      return contract.new(networkId, {from: sender, gas: 1800000})
+    }
   }
 
-  const createChannel = async (instance: ABroker.Contract) => {
+  async function createChannel (instance: ABroker.Contract): Promise<string> {
     let options = { value: delta, from: sender }
-    const log = await instance.createChannel(receiver, new BigNumber(100), new BigNumber(0), options)
-    return log.logs[0]
+    let log = await instance.openChannel(receiver, options)
+    let logEvent = log.logs[0]
+    if (ABroker.isDidCreateChannelEvent(logEvent)) {
+      return logEvent.args.channelId
+    } else {
+      return Promise.reject(log.receipt)
+    }
+  }
+
+  async function readChannel (instance: ABroker.Contract, channelId: string): Promise<PaymentChannel> {
+    let [sender, receiver, value, state] = await instance.channels(channelId)
+    return { sender, receiver, value, state }
   }
 
   describe('createChannel', () => {
-    specify('create channel', async () => {
-      let instance = await contract.deployed()
+    specify('emit DidCreateChannel event', async () => {
+      let instance = await deployed()
+      let channelId = await createChannel(instance)
+      assert.typeOf(channelId, 'string')
+    })
+
+    specify('increase contract balance', async () => {
+      let instance = await deployed()
       let startBalance = web3.eth.getBalance(instance.address)
-      let event = await createChannel(instance)
-      chai.assert.equal(event.event, 'DidCreateChannel')
-      assert.typeOf(event.args.channelId, 'string')
-      const endBalance = web3.eth.getBalance(instance.address)
+      await createChannel(instance)
+      let endBalance = web3.eth.getBalance(instance.address)
       assert.deepEqual(endBalance, startBalance.plus(delta))
     })
-  })
 
-  describe('canSenderDeposit', () => {
-    specify('if channel is open and is sender', async () => {
-      let instance = await contract.deployed()
-      let event = await createChannel(instance)
-      let channelId = event.args.channelId
-      let canSenderDeposit = await instance.canSenderDeposit(channelId, sender)
-      assert.isTrue(canSenderDeposit)
-    })
-
-    specify('not if an alien', async () => {
-      let instance = await contract.deployed()
-      let event = await createChannel(instance)
-      let channelId = event.args.channelId
-      let canSenderDeposit = await instance.canSenderDeposit(channelId, receiver)
-      assert.isFalse(canSenderDeposit)
-    })
-
-    specify('not if settling')
-
-    specify('not if absent channel', async () => {
-      let instance = await contract.deployed()
-      let channelId = '0xdeadbeaf'
-      let canSenderDeposit = await instance.canSenderDeposit(channelId, sender)
-      assert.isFalse(canSenderDeposit)
+    specify('set channel value', async () => {
+      let instance = await deployed()
+      let channelId = await createChannel(instance)
+      let channel = await readChannel(instance, channelId)
+      assert(channel.value.eq(delta))
     })
   })
-
-  describe('senderDeposit', () => {
-    specify('add to sender deposit', async () => {
-      let instance = await contract.deployed()
-      let event = await createChannel(instance)
-      let channelId = event.args.channelId
-      let before = web3.eth.getBalance(instance.address)
-      await instance.senderDeposit(channelId, {from: sender, value: delta})
-      let after = web3.eth.getBalance(instance.address)
-      assert.deepEqual(after, before.plus(delta))
-    })
-
-    specify('not if an alien', async () => {
-      let instance = await contract.deployed()
-      let event = await createChannel(instance)
-      let channelId = event.args.channelId
-      return assert.isRejected(instance.senderDeposit(channelId, {from: receiver, value: delta}))
-    })
-
-    specify('not if settling')
-
-    specify('not if channel absent', async () => {
-      let instance = await contract.deployed()
-      let channelId = '0xdeadbeaf'
-      return assert.isRejected(instance.senderDeposit(channelId, {from: sender, value: delta}))
-    })
-  })
-
-  describe('receiverDeposit', () => {
-    specify('add to receiver deposit', async () => {
-      let instance = await contract.deployed()
-      let event = await createChannel(instance)
-      let channelId = event.args.channelId
-      let before = web3.eth.getBalance(instance.address)
-      await instance.receiverDeposit(channelId, {from: receiver, value: delta})
-      let after = web3.eth.getBalance(instance.address)
-      assert.deepEqual(after, before.plus(delta))
-    })
-
-    specify('not if an alien', async () => {
-      let instance = await contract.deployed()
-      let event = await createChannel(instance)
-      let channelId = event.args.channelId
-      return assert.isRejected(instance.receiverDeposit(channelId, {from: sender, value: delta}))
-    })
-
-    specify('not if settling')
-
-    specify('not if absent', async () => {
-      let instance = await contract.deployed()
-      let channelId = '0xdeadbeaf'
-      return assert.isRejected(instance.receiverDeposit(channelId, {from: receiver, value: delta}))
-    })
-  })
-
-  describe('signatory', () => {
-    specify('recover address', async () => {
-      let instance = await contract.deployed()
-      let channelId = '0xdeadbeaf'
-      let nonce = 10
-      let payment = new BigNumber(10000)
-
-      let signature = await createSignature(channelId, nonce, payment, sender)
-      let signatory = await instance.signatory(channelId, nonce, payment, signature)
-      assert.equal(signatory, sender)
-    })
-  })
-
-  describe('receiverUpdateBalance', () => {
-    let nonce = 10
-    let payment = new BigNumber(10000)
-
-    specify('update balance to receiver', async () => {
-      let instance = await contract.deployed()
-      let event = await createChannel(instance)
-      let channelId = event.args.channelId
-
-      let signature = await createSignature(channelId, nonce, payment, sender)
-      let before = (await instance.balances(channelId))[2]
-      await assert.isFulfilled(instance.receiverUpdateBalance(channelId, nonce, payment, signature, {from: receiver}))
-      let after = (await instance.balances(channelId))[2]
-      assert.deepEqual(after, before.add(payment))
-    })
-
-    specify('not if alien', async () => {
-      let instance = await contract.deployed()
-      let event = await createChannel(instance)
-      let channelId = event.args.channelId
-
-      let signature = await createSignature(channelId, nonce, payment, sender)
-      return assert.isRejected(instance.receiverUpdateBalance(channelId, nonce, payment, signature, {from: sender}))
-    })
-
-    specify('not if absent', async () => {
-      let instance = await contract.deployed()
-      let channelId = '0xdeadbeaf'
-      let signature = await createSignature(channelId, nonce, payment, sender)
-      return assert.isRejected(instance.receiverUpdateBalance(channelId, nonce, payment, signature, {from: receiver}))
-    })
-  })
-
-  describe('senderUpdateBalance', () => {
-    let nonce = 10
-    let payment = new BigNumber(10000)
-
-    specify('update balance to receiver', async () => {
-      let instance = await contract.deployed()
-      let event = await createChannel(instance)
-      let channelId = event.args.channelId
-
-      let signature = await createSignature(channelId, nonce, payment, receiver)
-      let before = (await instance.balances(channelId))[1]
-      await assert.isFulfilled(instance.senderUpdateBalance(channelId, nonce, payment, signature, {from: sender}))
-      let after = (await instance.balances(channelId))[1]
-      assert.deepEqual(after, before.add(payment))
-    })
-
-    specify('not if alien', async () => {
-      let instance = await contract.deployed()
-      let event = await createChannel(instance)
-      let channelId = event.args.channelId
-
-      let signature = await createSignature(channelId, nonce, payment, receiver)
-      return assert.isRejected(instance.receiverUpdateBalance(channelId, nonce, payment, signature, {from: receiver}))
-    })
-
-    specify('not if absent', async () => {
-      let instance = await contract.deployed()
-      let channelId = '0xdeadbeaf'
-      let signature = await createSignature(channelId, nonce, payment, receiver)
-      return assert.isRejected(instance.receiverUpdateBalance(channelId, nonce, payment, signature, {from: sender}))
-    })
-  })
-
-
-
-  // -------------------------------------------------- //
-
-  /*
-  describe('claim', () => {
-    describe('by sender first', () => {
-      it('set state to Settling', async () => {
-        let instance = await contract.deployed()
-        const event = await createChannel(instance)
-
-        let startBalance = web3.eth.getBalance(instance.address)
-
-        const channelId = event.args.channelId
-        const logDeposit = await instance.deposit(channelId, {from: sender, value: delta})
-
-        const endBalance = web3.eth.getBalance(instance.address)
-
-        expect(logDeposit.logs[0].event).to.equal('DidDeposit')
-        expect(endBalance).to.deep.equal(startBalance.plus(delta))
-      })
-    })
-  })
-  */
 })

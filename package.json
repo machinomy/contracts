@@ -63,7 +63,8 @@
     "tslint-config-standard": "^6.0.1",
     "types-bn": "^0.0.1",
     "types-ethereumjs-util": "https://github.com/machinomy/types-ethereumjs-util.git",
-    "typescript": "^2.5.3"
+    "typescript": "^2.5.3",
+    "typescript-memoize": "^1.0.0-alpha.3"
   },
   "dependencies": {
     "bignumber.js": "^4.1.0",
