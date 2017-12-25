@@ -8,7 +8,9 @@ import "zeppelin-solidity/contracts/ECRecovery.sol";
 contract ABroker is Destructible {
     using SafeMath for uint256;
 
-    enum ChannelState { Open, Settling }
+    struct Settling {
+        uint256 until;
+    }
 
     struct PaymentChannel {
         address sender;
@@ -16,11 +18,10 @@ contract ABroker is Destructible {
         uint256 value;
 
         uint32 settlingPeriod;
-
-        ChannelState state;
     }
 
-    mapping(bytes32 => PaymentChannel) public channels;
+    mapping (bytes32 => PaymentChannel) public channels;
+    mapping (bytes32 => Settling) public settlings;
 
     uint32 public chainId;
     uint256 id;
@@ -41,8 +42,7 @@ contract ABroker is Destructible {
             msg.sender,
             receiver,
             msg.value,
-            settlingPeriod,
-            ChannelState.Open
+            settlingPeriod
         );
 
         DidOpen(channelId);
@@ -50,25 +50,22 @@ contract ABroker is Destructible {
 
     function canStartSettling(bytes32 channelId, address origin) public constant returns(bool) {
         var channel = channels[channelId];
-        bool isOpen = channel.state == ChannelState.Open;
         bool isSender = channel.sender == origin;
-        return isOpen && isSender;
+        return isOpen(channelId) && isSender;
     }
 
     function startSettling(bytes32 channelId) public {
         require(canStartSettling(channelId, msg.sender));
 
-        var channel = channels[channelId];
-        channel.state = ChannelState.Settling;
+        settlings[channelId] = Settling(block.number + channels[channelId].settlingPeriod);
 
         DidStartSettling(channelId);
     }
 
     function canSettle(bytes32 channelId, address origin) public constant returns(bool) {
         var channel = channels[channelId];
-        bool isSettling = channel.state == ChannelState.Settling;
         bool isSender = channel.sender == origin;
-        return isSender && isSettling;
+        return isSender && isSettling(channelId);
     }
 
     function settle(bytes32 channelId) public {
@@ -108,6 +105,15 @@ contract ABroker is Destructible {
     function isPresent(bytes32 channelId) public constant returns(bool) {
         var channel = channels[channelId];
         return channel.sender != 0;
+    }
+
+    function isSettling(bytes32 channelId) public constant returns(bool) {
+        var settling = settlings[channelId];
+        return settling.until != 0;
+    }
+
+    function isOpen(bytes32 channelId) public constant returns(bool) {
+        return isPresent(channelId) && !isSettling(channelId);
     }
 
     function paymentDigest(bytes32 channelId, uint256 payment) public constant returns(bytes32) {
