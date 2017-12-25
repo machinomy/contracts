@@ -105,293 +105,289 @@ contract('ABroker', accounts => {
     instance = await deployed()
   })
 
-  describe('happy unidirectional', () => {
-    describe('sender:createChannel', () => {
-      specify('emit DidOpen event', async () => {
-        let channelId = await createChannel(instance)
-        assert.typeOf(channelId, 'string')
-      })
-
-      specify('increase contract balance', async () => {
-        let startBalance = web3.eth.getBalance(instance.address)
-        await createChannel(instance)
-        let endBalance = web3.eth.getBalance(instance.address)
-        assert.deepEqual(endBalance, startBalance.plus(channelValue))
-      })
-
-      specify('set channel parameters', async () => {
-        let channelId = await createChannel(instance)
-        let channel = await readChannel(instance, channelId)
-        assert.equal(channel.sender, sender)
-        assert.equal(channel.receiver, receiver)
-        assert.equal(channel.value.toString(), channelValue.toString())
-        assert.isTrue(await instance.isOpen(channelId))
-      })
+  describe('createChannel', () => {
+    specify('emit DidOpen event', async () => {
+      let channelId = await createChannel(instance)
+      assert.typeOf(channelId, 'string')
     })
 
-    describe('sender:createChannel -> canClaim', () => {
-      specify('return true', async () => {
-        let channelId = await createChannel(instance)
-
-        let signature = await sign(sender, instance, channelId, channelValue)
-        let canClaim = await instance.canClaim(channelId, channelValue, receiver, signature)
-        assert.isTrue(canClaim)
-      })
-
-      specify('not if missing channel', async () => {
-        let channelId = '0xdeadbeaf'
-        let payment = new BigNumber(10)
-
-        let signature = await sign(sender, instance, channelId, payment)
-        let canClaim = await instance.canClaim(channelId, payment, receiver, signature)
-        assert.isFalse(canClaim)
-      })
-
-      specify('not if not receiver', async () => {
-        let channelId = await createChannel(instance)
-        let payment = new BigNumber(10)
-
-        let signature = await sign(sender, instance, channelId, payment)
-        let canClaim = await instance.canClaim(channelId, payment, sender, signature)
-        assert.isFalse(canClaim)
-      })
-
-      specify('not if not signed by sender', async () => {
-        let channelId = await createChannel(instance)
-        let payment = new BigNumber(10)
-
-        let signature = await sign(receiver, instance, channelId, payment)
-        let canClaim = await instance.canClaim(channelId, payment, receiver, signature)
-        assert.isFalse(canClaim)
-      })
+    specify('increase contract balance', async () => {
+      let startBalance = web3.eth.getBalance(instance.address)
+      await createChannel(instance)
+      let endBalance = web3.eth.getBalance(instance.address)
+      assert.deepEqual(endBalance, startBalance.plus(channelValue))
     })
 
-    describe('sender:createChannel -> claim', () => {
-      let payment = new BigNumber(web3.toWei('0.1', 'ether'))
+    specify('set channel parameters', async () => {
+      let channelId = await createChannel(instance)
+      let channel = await readChannel(instance, channelId)
+      assert.equal(channel.sender, sender)
+      assert.equal(channel.receiver, receiver)
+      assert.equal(channel.value.toString(), channelValue.toString())
+      assert.isTrue(await instance.isOpen(channelId))
+    })
+  })
 
-      specify('emit DidClaim event', async () => {
+  describe('canClaim', () => {
+    specify('return true', async () => {
+      let channelId = await createChannel(instance)
+
+      let signature = await sign(sender, instance, channelId, channelValue)
+      let canClaim = await instance.canClaim(channelId, channelValue, receiver, signature)
+      assert.isTrue(canClaim)
+    })
+
+    specify('not if missing channel', async () => {
+      let channelId = '0xdeadbeaf'
+      let payment = new BigNumber(10)
+
+      let signature = await sign(sender, instance, channelId, payment)
+      let canClaim = await instance.canClaim(channelId, payment, receiver, signature)
+      assert.isFalse(canClaim)
+    })
+
+    specify('not if not receiver', async () => {
+      let channelId = await createChannel(instance)
+      let payment = new BigNumber(10)
+
+      let signature = await sign(sender, instance, channelId, payment)
+      let canClaim = await instance.canClaim(channelId, payment, sender, signature)
+      assert.isFalse(canClaim)
+    })
+
+    specify('not if not signed by sender', async () => {
+      let channelId = await createChannel(instance)
+      let payment = new BigNumber(10)
+
+      let signature = await sign(receiver, instance, channelId, payment)
+      let canClaim = await instance.canClaim(channelId, payment, receiver, signature)
+      assert.isFalse(canClaim)
+    })
+  })
+
+  describe('sender:createChannel -> claim', () => {
+    let payment = new BigNumber(web3.toWei('0.1', 'ether'))
+
+    specify('emit DidClaim event', async () => {
+      let channelId = await createChannel(instance)
+
+      let signature = await sign(sender, instance, channelId, payment)
+      let tx = await instance.claim(channelId, payment, signature, {from: receiver})
+      gasoline.add('emit DidClaim event', 'claim', tx)
+      assert.isTrue(ABroker.isDidClaimEvent(tx.logs[0]))
+    })
+
+    specify('move payment to receiver balance', async () => {
+      let channelId = await createChannel(instance)
+
+      let startBalance = web3.eth.getBalance(receiver)
+
+      let signature = await sign(sender, instance, channelId, payment)
+      let tx = await instance.claim(channelId, payment, signature, {from: receiver})
+      gasoline.add('move payment to receiver balance', 'claim', tx)
+
+      let endBalance = web3.eth.getBalance(receiver)
+
+      let callCost = await transactionPrice(tx)
+      assert.isTrue(endBalance.minus(startBalance).eq(payment.minus(callCost)))
+    })
+
+    specify('move change to sender balance', async () => {
+      let channelId = await createChannel(instance)
+
+      let channelValue = (await readChannel(instance, channelId)).value
+      let change = channelValue.minus(payment)
+
+      let startBalance = web3.eth.getBalance(sender)
+
+      let signature = await sign(sender, instance, channelId, payment)
+      let tx = await instance.claim(channelId, payment, signature, {from: receiver})
+      gasoline.add('move change to sender balance', 'claim', tx)
+
+      let endBalance = web3.eth.getBalance(sender)
+      assert.isTrue(endBalance.minus(startBalance).eq(change))
+    })
+
+    specify('delete channel', async () => {
+      let channelId = await createChannel(instance)
+
+      let signature = await sign(sender, instance, channelId, payment)
+      let tx = await instance.claim(channelId, payment, signature, {from: receiver})
+      gasoline.add('delete channel', 'claim', tx)
+
+      let channel = await readChannel(instance, channelId)
+      assert.equal(channel.sender, '0x0000000000000000000000000000000000000000')
+      assert.equal(channel.receiver, '0x0000000000000000000000000000000000000000')
+      assert.isFalse(await instance.isPresent(channelId))
+    })
+
+    context('payment > channel.value', () => {
+      specify('move channel value to receiver balance', async () => {
         let channelId = await createChannel(instance)
-
+        let payment = new BigNumber(web3.toWei('10', 'ether'))
         let signature = await sign(sender, instance, channelId, payment)
-        let tx = await instance.claim(channelId, payment, signature, {from: receiver})
-        gasoline.add('emit DidClaim event', 'claim', tx)
-        assert.isTrue(ABroker.isDidClaimEvent(tx.logs[0]))
-      })
-
-      specify('move payment to receiver balance', async () => {
-        let channelId = await createChannel(instance)
 
         let startBalance = web3.eth.getBalance(receiver)
-
-        let signature = await sign(sender, instance, channelId, payment)
         let tx = await instance.claim(channelId, payment, signature, {from: receiver})
-        gasoline.add('move payment to receiver balance', 'claim', tx)
-
         let endBalance = web3.eth.getBalance(receiver)
-
         let callCost = await transactionPrice(tx)
-        assert.isTrue(endBalance.minus(startBalance).eq(payment.minus(callCost)))
-      })
-
-      specify('move change to sender balance', async () => {
-        let channelId = await createChannel(instance)
-
-        let channelValue = (await readChannel(instance, channelId)).value
-        let change = channelValue.minus(payment)
-
-        let startBalance = web3.eth.getBalance(sender)
-
-        let signature = await sign(sender, instance, channelId, payment)
-        let tx = await instance.claim(channelId, payment, signature, {from: receiver})
-        gasoline.add('move change to sender balance', 'claim', tx)
-
-        let endBalance = web3.eth.getBalance(sender)
-        assert.isTrue(endBalance.minus(startBalance).eq(change))
-      })
-
-      specify('delete channel', async () => {
-        let channelId = await createChannel(instance)
-
-        let signature = await sign(sender, instance, channelId, payment)
-        let tx = await instance.claim(channelId, payment, signature, {from: receiver})
-        gasoline.add('delete channel', 'claim', tx)
-
-        let channel = await readChannel(instance, channelId)
-        assert.equal(channel.sender, '0x0000000000000000000000000000000000000000')
-        assert.equal(channel.receiver, '0x0000000000000000000000000000000000000000')
-        assert.isFalse(await instance.isPresent(channelId))
-      })
-
-      context('payment > channel.value', () => {
-        specify('move channel value to receiver balance', async () => {
-          let channelId = await createChannel(instance)
-          let payment = new BigNumber(web3.toWei('10', 'ether'))
-          let signature = await sign(sender, instance, channelId, payment)
-
-          let startBalance = web3.eth.getBalance(receiver)
-          let tx = await instance.claim(channelId, payment, signature, {from: receiver})
-          let endBalance = web3.eth.getBalance(receiver)
-          let callCost = await transactionPrice(tx)
-          assert.isTrue(endBalance.eq(startBalance.plus(channelValue).minus(callCost)))
-        })
+        assert.isTrue(endBalance.eq(startBalance.plus(channelValue).minus(callCost)))
       })
     })
   })
 
-  describe('settling period', () => {
-    describe('sender:createChannel -> canStartSettling', () => {
-      specify('ok', async () => {
-        let channelId = await createChannel(instance)
-        let canStartSettling = await instance.canStartSettling(channelId, sender)
-        assert.isTrue(canStartSettling)
-      })
-
-      specify('not if receiver', async () => {
-        let channelId = await createChannel(instance)
-        let canStartSettling = await instance.canStartSettling(channelId, receiver)
-        assert.isFalse(canStartSettling)
-      })
-
-      specify('not if alien', async () => {
-        let channelId = await createChannel(instance)
-        let canStartSettling = await instance.canStartSettling(channelId, alien)
-        assert.isFalse(canStartSettling)
-      })
-
-      specify('not if no channel', async () => {
-        let channelId = '0xdeadbeaf'
-        let canStartSettling = await instance.canStartSettling(channelId, receiver)
-        assert.isFalse(canStartSettling)
-      })
-
-      specify('not if settling', async () => {
-        let channelId = await createChannel(instance)
-        await instance.startSettling(channelId, {from: sender})
-        let canStartSettling = await instance.canStartSettling(channelId, sender)
-        assert.isFalse(canStartSettling)
-      })
+  describe('canStartSettling', () => {
+    specify('ok', async () => {
+      let channelId = await createChannel(instance)
+      let canStartSettling = await instance.canStartSettling(channelId, sender)
+      assert.isTrue(canStartSettling)
     })
 
-    describe('startSettling', () => {
-      specify('change state to Settling', async () => {
-        let channelId = await createChannel(instance)
-        await instance.startSettling(channelId, {from: sender})
-        assert.isTrue(await instance.isSettling(channelId))
-      })
-
-      specify('emit DidStartSettling event', async () => {
-        let channelId = await createChannel(instance)
-        let tx = await instance.startSettling(channelId, {from: sender})
-        assert.isTrue(ABroker.isDidStartSettlingEvent(tx.logs[0]))
-      })
-
-      specify('create Settling entry', async () => {
-        let settlingPeriod = 10
-        let channelId = await createChannel(instance, settlingPeriod)
-        let tx = await instance.startSettling(channelId, {from: sender})
-        let blockNumber = tx.receipt.blockNumber
-        let settling = await readSettling(instance, channelId)
-        assert.equal(settling.until.toNumber(), settlingPeriod + blockNumber)
-      })
-
-      specify('not if sender', async () => {
-        let channelId = await createChannel(instance)
-        return assert.isRejected(instance.startSettling(channelId, {from: receiver}))
-      })
-
-      specify('not if alien', async () => {
-        let channelId = await createChannel(instance)
-        return assert.isRejected(instance.startSettling(channelId, {from: alien}))
-      })
-
-      specify('not if no channel', async () => {
-        let channelId = '0xdeadbeaf'
-        return assert.isRejected(instance.startSettling(channelId, {from: alien}))
-      })
-
-      specify('not if settling', async () => {
-        let channelId = await createChannel(instance)
-        await instance.startSettling(channelId, {from: sender})
-        assert.isTrue(await instance.isSettling(channelId))
-        return assert.isRejected(instance.startSettling(channelId, {from: sender}))
-      })
+    specify('not if receiver', async () => {
+      let channelId = await createChannel(instance)
+      let canStartSettling = await instance.canStartSettling(channelId, receiver)
+      assert.isFalse(canStartSettling)
     })
 
-    describe('canSettle', () => {
-      specify('ok', async () => {
-        let channelId = await createChannel(instance)
-        await instance.startSettling(channelId, {from: sender})
-        let canSettle = await instance.canSettle(channelId, sender)
-        assert.isTrue(canSettle)
-      })
-
-      specify('not if receiver', async () => {
-        let channelId = await createChannel(instance)
-        await instance.startSettling(channelId, {from: sender})
-        let canSettle = await instance.canSettle(channelId, receiver)
-        assert.isFalse(canSettle)
-      })
-
-      specify('not if alien', async () => {
-        let channelId = await createChannel(instance)
-        await instance.startSettling(channelId, {from: sender})
-        let canSettle = await instance.canSettle(channelId, alien)
-        assert.isFalse(canSettle)
-      })
-
-      specify('not if no channel', async () => {
-        let channelId = '0xdeadbeaf'
-        let canSettle = await instance.canSettle(channelId, sender)
-        assert.isFalse(canSettle)
-      })
-
-      specify('not if open', async () => {
-        let channelId = await createChannel(instance)
-        let canSettle = await instance.canSettle(channelId, sender)
-        assert.isFalse(canSettle)
-      })
+    specify('not if alien', async () => {
+      let channelId = await createChannel(instance)
+      let canStartSettling = await instance.canStartSettling(channelId, alien)
+      assert.isFalse(canStartSettling)
     })
 
-    describe('settle', () => {
-      specify('move channel value to sender', async () => {
-        let channelId = await createChannel(instance)
-        await instance.startSettling(channelId, {from: sender})
-        let startBalance = web3.eth.getBalance(sender)
-        let tx = await instance.settle(channelId, {from: sender})
-        let endBalance = web3.eth.getBalance(sender)
-        let callCost = await transactionPrice(tx)
+    specify('not if no channel', async () => {
+      let channelId = '0xdeadbeaf'
+      let canStartSettling = await instance.canStartSettling(channelId, receiver)
+      assert.isFalse(canStartSettling)
+    })
 
-        assert.equal(endBalance.minus(startBalance).toString(), channelValue.minus(callCost).toString())
-      })
+    specify('not if settling', async () => {
+      let channelId = await createChannel(instance)
+      await instance.startSettling(channelId, {from: sender})
+      let canStartSettling = await instance.canStartSettling(channelId, sender)
+      assert.isFalse(canStartSettling)
+    })
+  })
 
-      specify('emit DidSettle event', async () => {
-        let channelId = await createChannel(instance)
-        await instance.startSettling(channelId, {from: sender})
-        let tx = await instance.settle(channelId, {from: sender})
-        assert.isTrue(ABroker.isDidSettleEvent(tx.logs[0]))
-      })
+  describe('startSettling', () => {
+    specify('change state to Settling', async () => {
+      let channelId = await createChannel(instance)
+      await instance.startSettling(channelId, {from: sender})
+      assert.isTrue(await instance.isSettling(channelId))
+    })
 
-      specify('not if receiver', async () => {
-        let channelId = await createChannel(instance)
-        await instance.startSettling(channelId, {from: sender})
-        return assert.isRejected(instance.settle(channelId, {from: receiver}))
-      })
+    specify('emit DidStartSettling event', async () => {
+      let channelId = await createChannel(instance)
+      let tx = await instance.startSettling(channelId, {from: sender})
+      assert.isTrue(ABroker.isDidStartSettlingEvent(tx.logs[0]))
+    })
 
-      specify('not if alien', async () => {
-        let channelId = await createChannel(instance)
-        await instance.startSettling(channelId, {from: sender})
-        return assert.isRejected(instance.settle(channelId, {from: alien}))
-      })
+    specify('create Settling entry', async () => {
+      let settlingPeriod = 10
+      let channelId = await createChannel(instance, settlingPeriod)
+      let tx = await instance.startSettling(channelId, {from: sender})
+      let blockNumber = tx.receipt.blockNumber
+      let settling = await readSettling(instance, channelId)
+      assert.equal(settling.until.toNumber(), settlingPeriod + blockNumber)
+    })
 
-      specify('not if no channel', async () => {
-        let channelId = '0xdeadbeaf'
-        return assert.isRejected(instance.settle(channelId, {from: sender}))
-      })
+    specify('not if sender', async () => {
+      let channelId = await createChannel(instance)
+      return assert.isRejected(instance.startSettling(channelId, {from: receiver}))
+    })
 
-      specify('not if open', async () => {
-        let channelId = await createChannel(instance)
-        return assert.isRejected(instance.settle(channelId, {from: alien}))
-      })
+    specify('not if alien', async () => {
+      let channelId = await createChannel(instance)
+      return assert.isRejected(instance.startSettling(channelId, {from: alien}))
+    })
+
+    specify('not if no channel', async () => {
+      let channelId = '0xdeadbeaf'
+      return assert.isRejected(instance.startSettling(channelId, {from: alien}))
+    })
+
+    specify('not if settling', async () => {
+      let channelId = await createChannel(instance)
+      await instance.startSettling(channelId, {from: sender})
+      assert.isTrue(await instance.isSettling(channelId))
+      return assert.isRejected(instance.startSettling(channelId, {from: sender}))
+    })
+  })
+
+  describe('canSettle', () => {
+    specify('ok', async () => {
+      let channelId = await createChannel(instance)
+      await instance.startSettling(channelId, {from: sender})
+      let canSettle = await instance.canSettle(channelId, sender)
+      assert.isTrue(canSettle)
+    })
+
+    specify('not if receiver', async () => {
+      let channelId = await createChannel(instance)
+      await instance.startSettling(channelId, {from: sender})
+      let canSettle = await instance.canSettle(channelId, receiver)
+      assert.isFalse(canSettle)
+    })
+
+    specify('not if alien', async () => {
+      let channelId = await createChannel(instance)
+      await instance.startSettling(channelId, {from: sender})
+      let canSettle = await instance.canSettle(channelId, alien)
+      assert.isFalse(canSettle)
+    })
+
+    specify('not if no channel', async () => {
+      let channelId = '0xdeadbeaf'
+      let canSettle = await instance.canSettle(channelId, sender)
+      assert.isFalse(canSettle)
+    })
+
+    specify('not if open', async () => {
+      let channelId = await createChannel(instance)
+      let canSettle = await instance.canSettle(channelId, sender)
+      assert.isFalse(canSettle)
+    })
+  })
+
+  describe('settle', () => {
+    specify('move channel value to sender', async () => {
+      let channelId = await createChannel(instance)
+      await instance.startSettling(channelId, {from: sender})
+      let startBalance = web3.eth.getBalance(sender)
+      let tx = await instance.settle(channelId, {from: sender})
+      let endBalance = web3.eth.getBalance(sender)
+      let callCost = await transactionPrice(tx)
+
+      assert.equal(endBalance.minus(startBalance).toString(), channelValue.minus(callCost).toString())
+    })
+
+    specify('emit DidSettle event', async () => {
+      let channelId = await createChannel(instance)
+      await instance.startSettling(channelId, {from: sender})
+      let tx = await instance.settle(channelId, {from: sender})
+      assert.isTrue(ABroker.isDidSettleEvent(tx.logs[0]))
+    })
+
+    specify('not if receiver', async () => {
+      let channelId = await createChannel(instance)
+      await instance.startSettling(channelId, {from: sender})
+      return assert.isRejected(instance.settle(channelId, {from: receiver}))
+    })
+
+    specify('not if alien', async () => {
+      let channelId = await createChannel(instance)
+      await instance.startSettling(channelId, {from: sender})
+      return assert.isRejected(instance.settle(channelId, {from: alien}))
+    })
+
+    specify('not if no channel', async () => {
+      let channelId = '0xdeadbeaf'
+      return assert.isRejected(instance.settle(channelId, {from: sender}))
+    })
+
+    specify('not if open', async () => {
+      let channelId = await createChannel(instance)
+      return assert.isRejected(instance.settle(channelId, {from: alien}))
     })
   })
 
