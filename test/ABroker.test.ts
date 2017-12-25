@@ -13,6 +13,10 @@ const assert = chai.assert
 
 const web3 = (global as any).web3 as Web3
 
+enum PaymentChannelState {
+  OPEN = 0
+}
+
 interface PaymentChannel {
   sender: string
   receiver: string
@@ -66,11 +70,14 @@ contract('ABroker', accounts => {
       assert.deepEqual(endBalance, startBalance.plus(delta))
     })
 
-    specify('set channel value', async () => {
+    specify('set channel parameters', async () => {
       let instance = await deployed()
       let channelId = await createChannel(instance)
       let channel = await readChannel(instance, channelId)
+      assert.equal(channel.sender, sender)
+      assert.equal(channel.receiver, receiver)
       assert(channel.value.eq(delta))
+      assert(channel.state.eq(PaymentChannelState.OPEN))
     })
   })
 })
