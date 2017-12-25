@@ -41,4 +41,8 @@ contract ABroker is Destructible {
 
         DidCreateChannel(channelId);
     }
+
+    function paymentDigest(bytes32 channelId, uint256 payment) constant returns(bytes32) {
+        return keccak256(address(this), chainId, channelId, payment);
+    }
 }

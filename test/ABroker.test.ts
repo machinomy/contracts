@@ -3,6 +3,8 @@ import BigNumber from 'bignumber.js'
 
 import * as chai from 'chai'
 import * as asPromised from 'chai-as-promised'
+import * as abi from 'ethereumjs-abi'
+import * as util from 'ethereumjs-util'
 
 import { ABroker } from '../src/index'
 import { getNetwork } from './support'
@@ -55,6 +57,15 @@ contract('ABroker', accounts => {
     return { sender, receiver, value, state }
   }
 
+  async function paymentDigest (address: string, channelId: string, payment: BigNumber): Promise<string> {
+    let chainId = await getNetwork(web3)
+    let hash = abi.soliditySHA3(
+      ['address', 'uint32', 'bytes32', 'uint256'],
+      [address, chainId, channelId, payment.toString()]
+    )
+    return util.bufferToHex(hash)
+  }
+
   describe('createChannel', () => {
     specify('emit DidCreateChannel event', async () => {
       let instance = await deployed()
@@ -78,6 +89,17 @@ contract('ABroker', accounts => {
       assert.equal(channel.receiver, receiver)
       assert(channel.value.eq(delta))
       assert(channel.state.eq(PaymentChannelState.OPEN))
+    })
+  })
+
+  describe('paymentDigest', () => {
+    specify('returns hash', async () => {
+      let instance = await deployed()
+      let channelId = '0xdeadbeaf'
+      let payment = new BigNumber(10)
+      let digest = await instance.paymentDigest(channelId, payment)
+      let expected = await paymentDigest(instance.address, channelId, payment)
+      assert.equal(digest, expected)
     })
   })
 })
