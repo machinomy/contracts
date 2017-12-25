@@ -45,4 +45,9 @@ contract ABroker is Destructible {
     function paymentDigest(bytes32 channelId, uint256 payment) constant returns(bytes32) {
         return keccak256(address(this), chainId, channelId, payment);
     }
+
+    function signatureDigest(bytes32 channelId, uint256 payment) constant returns(bytes32) {
+        bytes memory prefix = "\x19Ethereum Signed Message:\n32";
+        return keccak256(prefix, paymentDigest(channelId, payment));
+    }
 }

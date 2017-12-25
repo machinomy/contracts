@@ -66,6 +66,16 @@ contract('ABroker', accounts => {
     return util.bufferToHex(hash)
   }
 
+  async function signatureDigest (address: string, channelId: string, payment: BigNumber): Promise<string> {
+    let digest = await paymentDigest(address, channelId, payment)
+    let prefix = Buffer.from("\x19Ethereum Signed Message:\n32")
+    let hash = abi.soliditySHA3(
+      ['bytes', 'bytes32'],
+      [prefix, digest]
+    )
+    return util.bufferToHex(hash)
+  }
+
   describe('createChannel', () => {
     specify('emit DidCreateChannel event', async () => {
       let instance = await deployed()
@@ -93,12 +103,23 @@ contract('ABroker', accounts => {
   })
 
   describe('paymentDigest', () => {
-    specify('returns hash', async () => {
+    specify('returns hash of the payment', async () => {
       let instance = await deployed()
       let channelId = '0xdeadbeaf'
       let payment = new BigNumber(10)
       let digest = await instance.paymentDigest(channelId, payment)
       let expected = await paymentDigest(instance.address, channelId, payment)
+      assert.equal(digest, expected)
+    })
+  })
+
+  describe('signatureDigest', () => {
+    specify('returns prefixed hash to be signed', async () => {
+      let instance = await deployed()
+      let channelId = '0xdeadbeaf'
+      let payment = new BigNumber(10)
+      let digest = await instance.signatureDigest(channelId, payment)
+      let expected = await signatureDigest(instance.address, channelId, payment)
       assert.equal(digest, expected)
     })
   })
