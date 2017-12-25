@@ -42,6 +42,15 @@ contract ABroker is Destructible {
         DidCreateChannel(channelId);
     }
 
+    function canClaim(bytes32 channelId, uint256 payment, address origin, bytes signature) constant returns(bool) {
+        var channel = channels[channelId];
+        var isReceiver = channel.receiver == origin;
+        var hash = signatureDigest(channelId, payment);
+        var isSigned = channel.sender == ECRecovery.recover(hash, signature);
+
+        return isReceiver && isSigned;
+    }
+
     function paymentDigest(bytes32 channelId, uint256 payment) constant returns(bytes32) {
         return keccak256(address(this), chainId, channelId, payment);
     }

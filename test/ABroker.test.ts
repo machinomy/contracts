@@ -8,6 +8,7 @@ import * as util from 'ethereumjs-util'
 
 import { ABroker } from '../src/index'
 import { getNetwork } from './support'
+import ECRecovery from '../build/wrappers/ECRecovery'
 
 chai.use(asPromised)
 
@@ -32,11 +33,13 @@ contract('ABroker', accounts => {
   let delta = new BigNumber(web3.toWei(0.1, 'ether'))
 
   async function deployed (): Promise<ABroker.Contract> {
+    let ecrecovery = artifacts.require<ECRecovery.Contract>('zeppelin-solidity/contracts/ECRecovery.sol')
     let contract = artifacts.require<ABroker.Contract>('ABroker.sol')
     if (contract.isDeployed()) {
       return contract.deployed()
     } else {
       let networkId = await getNetwork(web3)
+      contract.link(ecrecovery)
       return contract.new(networkId, {from: sender, gas: 1800000})
     }
   }
@@ -74,6 +77,19 @@ contract('ABroker', accounts => {
       [prefix, digest]
     )
     return util.bufferToHex(hash)
+  }
+
+  async function sign (origin: string, instance: ABroker.Contract, channelId: string, payment: BigNumber): Promise<string> {
+    let digest = await paymentDigest(instance.address, channelId, payment)
+    return new Promise<string>((resolve, reject) => {
+      web3.eth.sign(origin, digest, (error, signature) => {
+        if (error) {
+          reject(error)
+        } else {
+          resolve(signature)
+        }
+      })
+    })
   }
 
   describe('createChannel', () => {
@@ -121,6 +137,47 @@ contract('ABroker', accounts => {
       let digest = await instance.signatureDigest(channelId, payment)
       let expected = await signatureDigest(instance.address, channelId, payment)
       assert.equal(digest, expected)
+    })
+  })
+
+  describe('canClaim', () => {
+    specify('returns true', async () => {
+      let instance = await deployed()
+      let channelId = await createChannel(instance)
+
+      let signature = await sign(sender, instance, channelId, delta)
+      let canClaim = await instance.canClaim(channelId, delta, receiver, signature)
+      assert.isTrue(canClaim)
+    })
+
+    specify('not if missing channel', async () => {
+      let instance = await deployed()
+      let channelId = '0xdeadbeaf'
+      let payment = new BigNumber(10)
+
+      let signature = await sign(sender, instance, channelId, payment)
+      let canClaim = await instance.canClaim(channelId, payment, receiver, signature)
+      assert.isFalse(canClaim)
+    })
+
+    specify('not if not receiver', async () => {
+      let instance = await deployed()
+      let channelId = await createChannel(instance)
+      let payment = new BigNumber(10)
+
+      let signature = await sign(sender, instance, channelId, payment)
+      let canClaim = await instance.canClaim(channelId, payment, sender, signature)
+      assert.isFalse(canClaim)
+    })
+
+    specify('not if not signed by sender', async () => {
+      let instance = await deployed()
+      let channelId = await createChannel(instance)
+      let payment = new BigNumber(10)
+
+      let signature = await sign(receiver, instance, channelId, payment)
+      let canClaim = await instance.canClaim(channelId, payment, receiver, signature)
+      assert.isFalse(canClaim)
     })
   })
 })
