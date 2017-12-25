@@ -105,7 +105,7 @@ contract('ABroker', accounts => {
     instance = await deployed()
   })
 
-  describe('createChannel', () => {
+  describe('open', () => {
     specify('emit DidOpen event', async () => {
       let channelId = await createChannel(instance)
       assert.typeOf(channelId, 'string')
@@ -125,6 +125,69 @@ contract('ABroker', accounts => {
       assert.equal(channel.receiver, receiver)
       assert.equal(channel.value.toString(), channelValue.toString())
       assert.isTrue(await instance.isOpen(channelId))
+    })
+  })
+
+  describe('canDeposit', () => {
+    specify('ok', async () => {
+      let channelId = await createChannel(instance)
+      assert.isTrue(await instance.canDeposit(channelId, sender))
+    })
+
+    specify('not if not sender', async () => {
+      let channelId = await createChannel(instance)
+      assert.isFalse(await instance.canDeposit(channelId, receiver))
+    })
+
+    specify('not if missing channel', async () => {
+      let channelId = '0xdeadbeaf'
+      assert.isFalse(await instance.canDeposit(channelId, sender))
+    })
+
+    specify('not if settling', async () => {
+      let channelId = await createChannel(instance)
+      await instance.startSettling(channelId, {from: sender})
+      assert.isFalse(await instance.canDeposit(channelId, sender))
+    })
+  })
+
+  describe('deposit', () => {
+    specify('increase channel value', async () => {
+      let channelId = await createChannel(instance)
+      let balanceBefore = (await readChannel(instance, channelId)).value
+      await instance.deposit(channelId, {value: channelValue, from: sender})
+      let balanceAfter = (await readChannel(instance, channelId)).value
+      assert.equal(balanceAfter.toString(), balanceBefore.plus(channelValue).toString())
+    })
+
+    specify('increase contract balance', async () => {
+      let channelId = await createChannel(instance)
+      let balanceBefore = web3.eth.getBalance(instance.address)
+      await instance.deposit(channelId, {value: channelValue, from: sender})
+      let balanceAfter = web3.eth.getBalance(instance.address)
+      assert.equal(balanceAfter.toString(), balanceBefore.plus(channelValue).toString())
+    })
+
+    specify('emit DidDeposit event', async () => {
+      let channelId = await createChannel(instance)
+      let tx = await instance.deposit(channelId, {value: channelValue, from: sender})
+      assert.equal(tx.logs[0].event, 'DidDeposit')
+    })
+
+    specify('not if not sender', async () => {
+      let channelId = await createChannel(instance)
+      return assert.isRejected(instance.deposit(channelId, {value: channelValue, from: receiver}))
+    })
+
+    specify('not if missing channel', async () => {
+      let channelId = '0xdeadbeaf'
+      return assert.isRejected(instance.deposit(channelId, {value: channelValue, from: sender}))
+    })
+
+    specify('not if settling', async () => {
+      let channelId = await createChannel(instance)
+      await instance.startSettling(channelId, {from: sender})
+      return assert.isRejected(instance.deposit(channelId, {value: channelValue, from: sender}))
     })
   })
 
@@ -430,7 +493,7 @@ contract('ABroker', accounts => {
       return assert.isRejected(instance.settle(channelId, {from: alien}))
     })
 
-    specify('not if no channel', async () => {
+    specify('not if missing channel', async () => {
       let channelId = '0xdeadbeaf'
       return assert.isRejected(instance.settle(channelId, {from: sender}))
     })

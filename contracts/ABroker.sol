@@ -26,10 +26,11 @@ contract ABroker is Destructible {
     uint32 public chainId;
     uint256 id;
 
-    event DidOpen(bytes32 channelId);
-    event DidClaim(bytes32 channelId);
-    event DidStartSettling(bytes32 channelId);
-    event DidSettle(bytes32 channelId);
+    event DidOpen(bytes32 indexed channelId);
+    event DidDeposit(bytes32 indexed channelId);
+    event DidClaim(bytes32 indexed channelId);
+    event DidStartSettling(bytes32 indexed channelId);
+    event DidSettle(bytes32 indexed channelId);
 
     function ABroker(uint32 _chainId) public {
         chainId = _chainId;
@@ -46,6 +47,20 @@ contract ABroker is Destructible {
         );
 
         DidOpen(channelId);
+    }
+
+    function canDeposit(bytes32 channelId, address origin) public constant returns(bool) {
+        var channel = channels[channelId];
+        bool isSender = channel.sender == origin;
+        return isOpen(channelId) && isSender;
+    }
+
+    function deposit(bytes32 channelId) public payable {
+        require(canDeposit(channelId, msg.sender));
+
+        channels[channelId].value += msg.value;
+
+        DidDeposit(channelId);
     }
 
     function canStartSettling(bytes32 channelId, address origin) public constant returns(bool) {
