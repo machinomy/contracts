@@ -8,7 +8,7 @@ import "zeppelin-solidity/contracts/ECRecovery.sol";
 contract ABroker is Destructible {
     using SafeMath for uint256;
 
-    enum ChannelState { Open }
+    enum ChannelState { Open, Settling }
 
     struct PaymentChannel {
         address sender;
@@ -25,6 +25,7 @@ contract ABroker is Destructible {
 
     event DidOpen(bytes32 channelId);
     event DidClaim(bytes32 channelId);
+    event DidStartSettling(bytes32 channelId);
 
     function ABroker(uint32 _chainId) public {
         chainId = _chainId;
@@ -41,6 +42,22 @@ contract ABroker is Destructible {
         );
 
         DidOpen(channelId);
+    }
+
+    function canStartSettling(bytes32 channelId, address origin) public constant returns(bool) {
+        var channel = channels[channelId];
+        var isOpen = channel.state == ChannelState.Open;
+        var isSender = channel.sender == origin;
+        return isOpen && isSender;
+    }
+
+    function startSettling(bytes32 channelId) public {
+        require(canStartSettling(channelId, msg.sender));
+
+        var channel = channels[channelId];
+        channel.state = ChannelState.Settling;
+
+        DidStartSettling(channelId);
     }
 
     function canClaim(bytes32 channelId, uint256 payment, address origin, bytes signature) public constant returns(bool) {

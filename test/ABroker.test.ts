@@ -13,12 +13,14 @@ import ECRecovery from '../build/wrappers/ECRecovery'
 chai.use(asPromised)
 
 const assert = chai.assert
+const expect = chai.expect
 
 const web3 = (global as any).web3 as Web3
 const gasoline = new Gasoline(true)
 
 enum PaymentChannelState {
-  OPEN = 0
+  OPEN = 0,
+  SETTLING = 1
 }
 
 interface PaymentChannel {
@@ -31,6 +33,7 @@ interface PaymentChannel {
 contract('ABroker', accounts => {
   let sender = accounts[0]
   let receiver = accounts[1]
+  let alien = accounts[2]
   let delta = new BigNumber(web3.toWei(1, 'ether'))
 
   async function deployed (): Promise<ABroker.Contract> {
@@ -99,7 +102,7 @@ contract('ABroker', accounts => {
     instance = await deployed()
   })
 
-  describe('unidirectional', () => {
+  describe('happy unidirectional', () => {
     describe('sender:createChannel', () => {
       specify('emit DidOpen event', async () => {
         let channelId = await createChannel(instance)
@@ -229,6 +232,91 @@ contract('ABroker', accounts => {
           assert.isTrue(endBalance.eq(startBalance.plus(delta).minus(callCost)))
         })
       })
+    })
+  })
+
+  describe('settling period', () => {
+    describe('sender:createChannel -> canStartSettling', () => {
+      specify('ok if sender', async () => {
+        let channelId = await createChannel(instance)
+        let canStartSettling = await instance.canStartSettling(channelId, sender)
+        assert.isTrue(canStartSettling)
+      })
+
+      specify('not if receiver', async () => {
+        let channelId = await createChannel(instance)
+        let canStartSettling = await instance.canStartSettling(channelId, receiver)
+        assert.isFalse(canStartSettling)
+      })
+
+      specify('not if alien', async () => {
+        let channelId = await createChannel(instance)
+        let canStartSettling = await instance.canStartSettling(channelId, alien)
+        assert.isFalse(canStartSettling)
+      })
+
+      specify('not if no channel', async () => {
+        let channelId = '0xdeadbeaf'
+        let canStartSettling = await instance.canStartSettling(channelId, receiver)
+        assert.isFalse(canStartSettling)
+      })
+
+      specify('not if settling', async () => {
+        let channelId = await createChannel(instance)
+        await instance.startSettling(channelId, {from: sender})
+        let canStartSettling = await instance.canStartSettling(channelId, sender)
+        assert.isFalse(canStartSettling)
+      })
+    })
+
+    describe('sender:createChannel -> startSettling', () => {
+      specify('change state to Settling', async () => {
+        let channelId = await createChannel(instance)
+        await instance.startSettling(channelId, {from: sender})
+        let channel = await readChannel(instance, channelId)
+        assert(channel.state.eq(PaymentChannelState.SETTLING))
+      })
+
+      specify('emit DidStartSettling event', async () => {
+        let channelId = await createChannel(instance)
+        let tx = await instance.startSettling(channelId, {from: sender})
+        assert.isTrue(ABroker.isDidStartSettlingEvent(tx.logs[0]))
+      })
+
+      specify('not if sender', async () => {
+        let channelId = await createChannel(instance)
+        expect(async () => {
+          await instance.startSettling(channelId, {from: receiver})
+        }).to.throw
+      })
+
+      specify('not if alien', async () => {
+        let channelId = await createChannel(instance)
+        expect(async () => {
+          await instance.startSettling(channelId, {from: alien})
+        }).to.throw
+      })
+
+      specify('not if no channel', async () => {
+        let channelId = '0xdeadbeaf'
+        expect(async () => {
+          await instance.startSettling(channelId, {from: alien})
+        }).to.throw
+      })
+
+      specify('not if settling', async () => {
+        let channelId = await createChannel(instance)
+        await instance.startSettling(channelId, {from: sender})
+        let channel = await readChannel(instance, channelId)
+        assert(channel.state.eq(PaymentChannelState.SETTLING))
+        expect(async () => {
+          await instance.startSettling(channelId, {from: sender})
+        }).to.throw
+      })
+    })
+
+    describe('sender:createChannel -> startSettling -> canSettle', () => {
+
     })
   })
 
