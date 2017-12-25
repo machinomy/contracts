@@ -1,0 +1,5 @@
+export interface {{this.name}} {
+{{#if inputs}}
+  {{#each inputs}}{{name}}: {{#inputType type}}{{/inputType}}{{/each}}
+{{/if}}
+}

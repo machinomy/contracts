@@ -10,4 +10,5 @@ export default interface Context {
   relativeArtifactPath: string
   getters: Array<MethodAbi>
   functions: Array<MethodAbi>
+  events: Array<Web3.EventAbi>
 }

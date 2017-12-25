@@ -20,6 +20,10 @@ export namespace {{contractName}} {
     sendTransaction: (opts: Web3.CallData) => Promise<truffle.TransactionResult>
   }
 
+  {{#each events}}
+  {{> event contractName=../contractName}}
+  {{/each}}
+
   export function contract (provider?: Web3.Provider, defaults?: Web3.CallData): truffle.TruffleContract<Contract> {
     let instance = truffle<Contract>(ARTIFACT)
     if (provider) {

@@ -6,9 +6,14 @@ import Context, {MethodAbi} from './Context'
 import * as helpers from './helpers'
 
 const ABI_TYPE_FUNCTION = 'function'
+const ABI_TYPE_EVENT = 'event'
 
 function isAbiFunction (abi: Web3.AbiDefinition): abi is Web3.MethodAbi {
   return abi.type === ABI_TYPE_FUNCTION
+}
+
+function isAbiEvent (abi: Web3.AbiDefinition): abi is Web3.EventAbi {
+  return abi.type === ABI_TYPE_EVENT
 }
 
 export default class ContractTemplate {
@@ -71,6 +76,8 @@ export default class ContractTemplate {
       let getters = methods.filter((abi: MethodAbi) => abi.constant)
       let functions = methods.filter((abi: MethodAbi) => !abi.constant)
 
+      let events = abi.filter(isAbiEvent)
+
       let contractName = path.parse(abiFilePath).name
       const basename = path.basename(abiFilePath, path.extname(abiFilePath))
       const filePath = `${this.outputDir}/${basename}.ts`
@@ -81,7 +88,8 @@ export default class ContractTemplate {
         contractName: contractName,
         relativeArtifactPath: relativeArtifactPath,
         getters: getters,
-        functions: functions
+        functions: functions,
+        events: events
       }
       let code = this.template(context)
       fs.writeFileSync(filePath, code)
