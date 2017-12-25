@@ -93,7 +93,7 @@ contract('ABroker', accounts => {
     })
   }
 
-  describe('createChannel', () => {
+  describe('sender:createChannel', () => {
     specify('emit DidOpen event', async () => {
       let instance = await deployed()
       let channelId = await createChannel(instance)
@@ -119,29 +119,7 @@ contract('ABroker', accounts => {
     })
   })
 
-  describe('paymentDigest', () => {
-    specify('return hash of the payment', async () => {
-      let instance = await deployed()
-      let channelId = '0xdeadbeaf'
-      let payment = new BigNumber(10)
-      let digest = await instance.paymentDigest(channelId, payment)
-      let expected = await paymentDigest(instance.address, channelId, payment)
-      assert.equal(digest, expected)
-    })
-  })
-
-  describe('signatureDigest', () => {
-    specify('return prefixed hash to be signed', async () => {
-      let instance = await deployed()
-      let channelId = '0xdeadbeaf'
-      let payment = new BigNumber(10)
-      let digest = await instance.signatureDigest(channelId, payment)
-      let expected = await signatureDigest(instance.address, channelId, payment)
-      assert.equal(digest, expected)
-    })
-  })
-
-  describe('canClaim', () => {
+  describe('sender:createChannel -> canClaim', () => {
     specify('return true', async () => {
       let instance = await deployed()
       let channelId = await createChannel(instance)
@@ -182,7 +160,7 @@ contract('ABroker', accounts => {
     })
   })
 
-  describe('claim', () => {
+  describe('sender:createChannel -> claim', () => {
     let payment = new BigNumber(web3.toWei('0.1', 'ether'))
 
     specify('emit DidClaim event', async () => {
@@ -255,6 +233,28 @@ contract('ABroker', accounts => {
         let callCost = await transactionPrice(tx)
         assert.isTrue(endBalance.eq(startBalance.plus(delta).minus(callCost)))
       })
+    })
+  })
+
+  describe('paymentDigest', () => {
+    specify('return hash of the payment', async () => {
+      let instance = await deployed()
+      let channelId = '0xdeadbeaf'
+      let payment = new BigNumber(10)
+      let digest = await instance.paymentDigest(channelId, payment)
+      let expected = await paymentDigest(instance.address, channelId, payment)
+      assert.equal(digest, expected)
+    })
+  })
+
+  describe('signatureDigest', () => {
+    specify('return prefixed hash to be signed', async () => {
+      let instance = await deployed()
+      let channelId = '0xdeadbeaf'
+      let payment = new BigNumber(10)
+      let digest = await instance.signatureDigest(channelId, payment)
+      let expected = await signatureDigest(instance.address, channelId, payment)
+      assert.equal(digest, expected)
     })
   })
 })
