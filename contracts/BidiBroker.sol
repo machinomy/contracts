@@ -104,7 +104,7 @@ contract BidiBroker is Destructible {
 
         balance.toReceiver = payment;
         balance.toSender = channel.senderDeposit.add(channel.receiverDeposit).sub(payment);
-        DidUpdateBalance(channelId, nonce, toSender, toReceiver);
+        DidUpdateBalance(channelId, nonce, balance.toSender, balance.toReceiver);
     }
 
     function senderUpdateBalance(bytes32 channelId, uint32 nonce, uint256 payment, bytes signature) public {
@@ -115,7 +115,7 @@ contract BidiBroker is Destructible {
 
         balance.toSender = payment;
         balance.toReceiver = channel.senderDeposit.add(channel.receiverDeposit).sub(payment);
-        DidUpdateBalance(channelId, nonce, toSender, toReceiver);
+        DidUpdateBalance(channelId, nonce, balance.toSender, balance.toReceiver);
     }
 
     //** Settle. Let contract client decide what to call **//
