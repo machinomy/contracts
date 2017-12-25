@@ -7,7 +7,7 @@ import * as abi from 'ethereumjs-abi'
 import * as util from 'ethereumjs-util'
 
 import { ABroker } from '../src/index'
-import { getNetwork } from './support'
+import {transactionPrice, getNetwork, Gasoline} from './support'
 import ECRecovery from '../build/wrappers/ECRecovery'
 
 chai.use(asPromised)
@@ -15,6 +15,7 @@ chai.use(asPromised)
 const assert = chai.assert
 
 const web3 = (global as any).web3 as Web3
+const gasoline = new Gasoline(true)
 
 enum PaymentChannelState {
   OPEN = 0
@@ -30,7 +31,7 @@ interface PaymentChannel {
 contract('ABroker', accounts => {
   let sender = accounts[0]
   let receiver = accounts[1]
-  let delta = new BigNumber(web3.toWei(0.1, 'ether'))
+  let delta = new BigNumber(web3.toWei(1, 'ether'))
 
   async function deployed (): Promise<ABroker.Contract> {
     let ecrecovery = artifacts.require<ECRecovery.Contract>('zeppelin-solidity/contracts/ECRecovery.sol')
@@ -46,9 +47,9 @@ contract('ABroker', accounts => {
 
   async function createChannel (instance: ABroker.Contract): Promise<string> {
     let options = { value: delta, from: sender }
-    let log = await instance.openChannel(receiver, options)
+    let log = await instance.open(receiver, options)
     let logEvent = log.logs[0]
-    if (ABroker.isDidCreateChannelEvent(logEvent)) {
+    if (ABroker.isDidOpenEvent(logEvent)) {
       return logEvent.args.channelId
     } else {
       return Promise.reject(log.receipt)
@@ -93,7 +94,7 @@ contract('ABroker', accounts => {
   }
 
   describe('createChannel', () => {
-    specify('emit DidCreateChannel event', async () => {
+    specify('emit DidOpen event', async () => {
       let instance = await deployed()
       let channelId = await createChannel(instance)
       assert.typeOf(channelId, 'string')
@@ -119,7 +120,7 @@ contract('ABroker', accounts => {
   })
 
   describe('paymentDigest', () => {
-    specify('returns hash of the payment', async () => {
+    specify('return hash of the payment', async () => {
       let instance = await deployed()
       let channelId = '0xdeadbeaf'
       let payment = new BigNumber(10)
@@ -130,7 +131,7 @@ contract('ABroker', accounts => {
   })
 
   describe('signatureDigest', () => {
-    specify('returns prefixed hash to be signed', async () => {
+    specify('return prefixed hash to be signed', async () => {
       let instance = await deployed()
       let channelId = '0xdeadbeaf'
       let payment = new BigNumber(10)
@@ -141,7 +142,7 @@ contract('ABroker', accounts => {
   })
 
   describe('canClaim', () => {
-    specify('returns true', async () => {
+    specify('return true', async () => {
       let instance = await deployed()
       let channelId = await createChannel(instance)
 
@@ -178,6 +179,82 @@ contract('ABroker', accounts => {
       let signature = await sign(receiver, instance, channelId, payment)
       let canClaim = await instance.canClaim(channelId, payment, receiver, signature)
       assert.isFalse(canClaim)
+    })
+  })
+
+  describe('claim', () => {
+    let payment = new BigNumber(web3.toWei('0.1', 'ether'))
+
+    specify('emit DidClaim event', async () => {
+      let instance = await deployed()
+      let channelId = await createChannel(instance)
+
+      let signature = await sign(sender, instance, channelId, payment)
+      let tx = await instance.claim(channelId, payment, signature, {from: receiver})
+      gasoline.add('emit DidClaim event', 'claim', tx)
+      assert.isTrue(ABroker.isDidClaimEvent(tx.logs[0]))
+    })
+
+    specify('move payment to receiver balance', async () => {
+      let instance = await deployed()
+      let channelId = await createChannel(instance)
+
+      let startBalance = web3.eth.getBalance(receiver)
+
+      let signature = await sign(sender, instance, channelId, payment)
+      let tx = await instance.claim(channelId, payment, signature, {from: receiver})
+      gasoline.add('move payment to receiver balance', 'claim', tx)
+
+      let endBalance = web3.eth.getBalance(receiver)
+
+      let callCost = await transactionPrice(tx)
+      assert.isTrue(endBalance.minus(startBalance).eq(payment.minus(callCost)))
+    })
+
+    specify('move change to sender balance', async () => {
+      let instance = await deployed()
+      let channelId = await createChannel(instance)
+
+      let channelValue = (await readChannel(instance, channelId)).value
+      let change = channelValue.minus(payment)
+
+      let startBalance = web3.eth.getBalance(sender)
+
+      let signature = await sign(sender, instance, channelId, payment)
+      let tx = await instance.claim(channelId, payment, signature, {from: receiver})
+      gasoline.add('move change to sender balance', 'claim', tx)
+
+      let endBalance = web3.eth.getBalance(sender)
+      assert.isTrue(endBalance.minus(startBalance).eq(change))
+    })
+
+    specify('delete channel', async () => {
+      let instance = await deployed()
+      let channelId = await createChannel(instance)
+
+      let signature = await sign(sender, instance, channelId, payment)
+      let tx = await instance.claim(channelId, payment, signature, {from: receiver})
+      gasoline.add('delete channel', 'claim', tx)
+
+      let channel = await readChannel(instance, channelId)
+      assert.equal(channel.sender, '0x0000000000000000000000000000000000000000')
+      assert.equal(channel.receiver, '0x0000000000000000000000000000000000000000')
+      assert.isFalse(await instance.isPresent(channelId))
+    })
+
+    context('payment > channel.value', () => {
+      specify('move channel value to receiver balance', async () => {
+        let instance = await deployed()
+        let channelId = await createChannel(instance)
+        let payment = new BigNumber(web3.toWei('10', 'ether'))
+        let signature = await sign(sender, instance, channelId, payment)
+
+        let startBalance = web3.eth.getBalance(receiver)
+        let tx = await instance.claim(channelId, payment, signature, {from: receiver})
+        let endBalance = web3.eth.getBalance(receiver)
+        let callCost = await transactionPrice(tx)
+        assert.isTrue(endBalance.eq(startBalance.plus(delta).minus(callCost)))
+      })
     })
   })
 })

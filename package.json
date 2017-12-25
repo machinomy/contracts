@@ -19,7 +19,7 @@
     "truffle:migrate:ropsten": "truffle migrate --network ropsten",
     "truffle:compile": "truffle compile",
     "test": "yarn run build && yarn run truffle:test",
-    "test:abroker": "yarn run build && run-with-testrpc --networkId 999 --mnemonic 'testtest' --unlock 0 'truffle test ./test/ABroker.test.js'",
+    "test:abroker": "yarn run build && run-with-testrpc --networkId 999 --gasPrice 100000000000 --unlock 0 'truffle test ./test/ABroker.test.js'",
     "prepare": "yarn build && yarn lint",
     "build": "yarn run support:wrap && tsc --project tsconfig.json",
     "lint:typescript": "tslint --format stylish --project .",

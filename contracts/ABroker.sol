@@ -1,4 +1,4 @@
-pragma solidity ^0.4.11;
+pragma solidity ^0.4.15;
 
 import "zeppelin-solidity/contracts/lifecycle/Destructible.sol";
 import "zeppelin-solidity/contracts/math/SafeMath.sol";
@@ -23,14 +23,15 @@ contract ABroker is Destructible {
     uint32 public chainId;
     uint256 id;
 
-    event DidCreateChannel(bytes32 channelId);
+    event DidOpen(bytes32 channelId);
+    event DidClaim(bytes32 channelId);
 
     function ABroker(uint32 _chainId) public {
         chainId = _chainId;
         id = 0;
     }
 
-    function openChannel(address receiver) public payable {
+    function open(address receiver) public payable {
         var channelId = keccak256(block.number + id++);
         channels[channelId] = PaymentChannel(
             msg.sender,
@@ -39,23 +40,45 @@ contract ABroker is Destructible {
             ChannelState.Open
         );
 
-        DidCreateChannel(channelId);
+        DidOpen(channelId);
     }
 
-    function canClaim(bytes32 channelId, uint256 payment, address origin, bytes signature) constant returns(bool) {
+    function canClaim(bytes32 channelId, uint256 payment, address origin, bytes signature) public constant returns(bool) {
         var channel = channels[channelId];
-        var isReceiver = channel.receiver == origin;
+        var isReceiver = origin == channel.receiver;
         var hash = signatureDigest(channelId, payment);
         var isSigned = channel.sender == ECRecovery.recover(hash, signature);
 
         return isReceiver && isSigned;
     }
 
-    function paymentDigest(bytes32 channelId, uint256 payment) constant returns(bytes32) {
+    function claim(bytes32 channelId, uint256 payment, bytes signature) public {
+        require(canClaim(channelId, payment, msg.sender, signature));
+
+        var channel = channels[channelId];
+
+        if (payment > channel.value) {
+            require(channel.receiver.send(channel.value));
+        } else {
+            require(channel.receiver.send(payment));
+            require(channel.sender.send(channel.value.sub(payment)));
+        }
+
+        delete channels[channelId];
+
+        DidClaim(channelId);
+    }
+
+    function isPresent(bytes32 channelId) public constant returns(bool) {
+        var channel = channels[channelId];
+        return channel.sender != 0;
+    }
+
+    function paymentDigest(bytes32 channelId, uint256 payment) public constant returns(bytes32) {
         return keccak256(address(this), chainId, channelId, payment);
     }
 
-    function signatureDigest(bytes32 channelId, uint256 payment) constant returns(bytes32) {
+    function signatureDigest(bytes32 channelId, uint256 payment) public constant returns(bytes32) {
         bytes memory prefix = "\x19Ethereum Signed Message:\n32";
         return keccak256(prefix, paymentDigest(channelId, payment));
     }

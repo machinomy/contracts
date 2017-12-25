@@ -3,6 +3,13 @@ import { TransactionResult } from 'truffle-contract'
 import BigNumber from 'bignumber.js'
 import * as truffle from 'truffle-contract'
 
+export const GAS_PRICE = new BigNumber(100000000000)
+
+export async function transactionPrice(transactionResult: truffle.TransactionResult): Promise<BigNumber> {
+  let amount = await transactionResult.receipt.gasUsed
+  return GAS_PRICE.mul(amount)
+}
+
 export function getNetwork (web3: Web3): Promise<number> {
   return new Promise((resolve, reject) => {
     web3.version.getNetwork((error, result) => {
@@ -13,6 +20,31 @@ export function getNetwork (web3: Web3): Promise<number> {
       }
     })
   })
+}
+
+export interface GasolineEntry {
+  testName: string
+  functionCall: string
+  gasUsed: number
+}
+
+export class Gasoline {
+  items: Array<GasolineEntry>
+  show: boolean
+
+  constructor (show?: boolean) {
+    this.show = show || !!process.env.SHOW_GASOLINE
+    this.items = []
+  }
+
+  add(testName: string, name: string, tx: truffle.TransactionResult) {
+    let item = {
+      testName: testName,
+      functionCall: name,
+      gasUsed: tx.receipt.gasUsed
+    }
+    this.items.push(item)
+  }
 }
 
 export namespace ERC20Example {
