@@ -73,6 +73,8 @@ contract ABroker is Destructible {
         var channel = channels[channelId];
         require(channel.sender.send(channel.value));
 
+        delete settlings[channelId];
+        delete channels[channelId];
         DidSettle(channelId);
     }
 

@@ -316,7 +316,7 @@ contract('ABroker', accounts => {
 
   describe('canSettle', () => {
     specify('ok', async () => {
-      let channelId = await createChannel(instance)
+      let channelId = await createChannel(instance, 0)
       await instance.startSettling(channelId, {from: sender})
       let canSettle = await instance.canSettle(channelId, sender)
       assert.isTrue(canSettle)
@@ -347,6 +347,12 @@ contract('ABroker', accounts => {
       let canSettle = await instance.canSettle(channelId, sender)
       assert.isFalse(canSettle)
     })
+
+    specify('not until settling period is over', async () => {
+      let channelId = await createChannel(instance, 2)
+      let canSettle = await instance.canSettle(channelId, sender)
+      assert.isFalse(canSettle)
+    })
   })
 
   describe('settle', () => {
@@ -366,6 +372,21 @@ contract('ABroker', accounts => {
       await instance.startSettling(channelId, {from: sender})
       let tx = await instance.settle(channelId, {from: sender})
       assert.isTrue(ABroker.isDidSettleEvent(tx.logs[0]))
+    })
+
+    specify('delete PaymentChannel', async () => {
+      let channelId = await createChannel(instance)
+      await instance.startSettling(channelId, {from: sender})
+      await instance.settle(channelId, {from: sender})
+      assert.isFalse(await instance.isPresent(channelId))
+    })
+
+    specify('delete Settling', async () => {
+      let channelId = await createChannel(instance)
+      await instance.startSettling(channelId, {from: sender})
+      await instance.settle(channelId, {from: sender})
+      let settling = await readSettling(instance, channelId)
+      assert.equal(settling.until.toNumber(), 0)
     })
 
     specify('not if receiver', async () => {
