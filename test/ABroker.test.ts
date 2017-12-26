@@ -20,8 +20,7 @@ const gasoline = new Gasoline(true)
 interface PaymentChannel {
   sender: string
   receiver: string
-  toSender: BigNumber
-  toReceiver: BigNumber
+  value: BigNumber
   settlingPeriod: BigNumber
   settlingUntil: BigNumber
 }
@@ -56,8 +55,8 @@ contract('ABroker', accounts => {
   }
 
   async function readChannel (instance: ABroker.Contract, channelId: string): Promise<PaymentChannel> {
-    let [sender, receiver, toSender, toReceiver, settlingPeriod, settlingUntil] = await instance.channels(channelId)
-    return { sender, receiver, toSender, toReceiver, settlingPeriod, settlingUntil }
+    let [sender, receiver, value, settlingPeriod, settlingUntil] = await instance.channels(channelId)
+    return { sender, receiver, value, settlingPeriod, settlingUntil }
   }
 
   async function paymentDigest (address: string, channelId: string, payment: BigNumber): Promise<string> {
@@ -92,10 +91,6 @@ contract('ABroker', accounts => {
     })
   }
 
-  function channelTotal (channel: PaymentChannel): BigNumber {
-    return channel.toSender.plus(channel.toReceiver)
-  }
-
   let instance: ABroker.Contract
 
   before(async () => {
@@ -120,7 +115,7 @@ contract('ABroker', accounts => {
       let channel = await readChannel(instance, channelId)
       assert.equal(channel.sender, sender)
       assert.equal(channel.receiver, receiver)
-      assert.equal(channelTotal(channel).toString(), channelValue.toString())
+      assert.equal(channel.value.toString(), channelValue.toString())
       assert.isTrue(await instance.isOpen(channelId))
     })
   })
@@ -151,9 +146,9 @@ contract('ABroker', accounts => {
   describe('deposit', () => {
     specify('increase channel value', async () => {
       let channelId = await createChannel(instance)
-      let balanceBefore = channelTotal(await readChannel(instance, channelId))
+      let balanceBefore = (await readChannel(instance, channelId)).value
       await instance.deposit(channelId, {value: channelValue, from: sender})
-      let balanceAfter = channelTotal(await readChannel(instance, channelId))
+      let balanceAfter = (await readChannel(instance, channelId)).value
       assert.equal(balanceAfter.toString(), balanceBefore.plus(channelValue).toString())
     })
 
@@ -255,7 +250,7 @@ contract('ABroker', accounts => {
     specify('move change to sender balance', async () => {
       let channelId = await createChannel(instance)
 
-      let channelValue = channelTotal(await readChannel(instance, channelId))
+      let channelValue = (await readChannel(instance, channelId)).value
       let change = channelValue.minus(payment)
 
       let startBalance = web3.eth.getBalance(sender)

@@ -11,8 +11,7 @@ contract ABroker is Destructible {
     struct PaymentChannel {
         address sender;
         address receiver;
-        uint256 toSender;
-        uint256 toReceiver;
+        uint256 value;
 
         uint32 settlingPeriod;
         uint256 settlingUntil;
@@ -39,7 +38,6 @@ contract ABroker is Destructible {
         channels[channelId] = PaymentChannel(
             msg.sender,
             receiver,
-            0,
             msg.value,
             settlingPeriod,
             0
@@ -57,7 +55,7 @@ contract ABroker is Destructible {
     function deposit(bytes32 channelId) public payable {
         require(canDeposit(channelId, msg.sender));
 
-        channels[channelId].toReceiver += msg.value;
+        channels[channelId].value += msg.value;
 
         DidDeposit(channelId);
     }
@@ -87,7 +85,7 @@ contract ABroker is Destructible {
     function settle(bytes32 channelId) public {
         require(canSettle(channelId, msg.sender));
         var channel = channels[channelId];
-        require(channel.sender.send(channel.toReceiver));
+        require(channel.sender.send(channel.value));
 
         delete channels[channelId];
         DidSettle(channelId);
@@ -107,11 +105,11 @@ contract ABroker is Destructible {
 
         var channel = channels[channelId];
 
-        if (payment > channel.toReceiver) {
-            require(channel.receiver.send(channel.toReceiver));
+        if (payment > channel.value) {
+            require(channel.receiver.send(channel.value));
         } else {
             require(channel.receiver.send(payment));
-            require(channel.sender.send(channel.toReceiver.sub(payment)));
+            require(channel.sender.send(channel.value.sub(payment)));
         }
 
         delete channels[channelId];
