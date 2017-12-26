@@ -20,12 +20,10 @@ const gasoline = new Gasoline(true)
 interface PaymentChannel {
   sender: string
   receiver: string
-  value: BigNumber
-  settlingPeriod: BigNumber,
-}
-
-interface Settling {
-  until: BigNumber,
+  toSender: BigNumber
+  toReceiver: BigNumber
+  settlingPeriod: BigNumber
+  settlingUntil: BigNumber
 }
 
 contract('ABroker', accounts => {
@@ -58,13 +56,8 @@ contract('ABroker', accounts => {
   }
 
   async function readChannel (instance: ABroker.Contract, channelId: string): Promise<PaymentChannel> {
-    let [sender, receiver, value, settlingPeriod] = await instance.channels(channelId)
-    return { sender, receiver, value, settlingPeriod }
-  }
-
-  async function readSettling (instance: ABroker.Contract, channelId: string): Promise<Settling> {
-    let until = await instance.settlings(channelId)
-    return { until }
+    let [sender, receiver, toSender, toReceiver, settlingPeriod, settlingUntil] = await instance.channels(channelId)
+    return { sender, receiver, toSender, toReceiver, settlingPeriod, settlingUntil }
   }
 
   async function paymentDigest (address: string, channelId: string, payment: BigNumber): Promise<string> {
@@ -99,6 +92,10 @@ contract('ABroker', accounts => {
     })
   }
 
+  function channelTotal (channel: PaymentChannel): BigNumber {
+    return channel.toSender.plus(channel.toReceiver)
+  }
+
   let instance: ABroker.Contract
 
   before(async () => {
@@ -123,7 +120,7 @@ contract('ABroker', accounts => {
       let channel = await readChannel(instance, channelId)
       assert.equal(channel.sender, sender)
       assert.equal(channel.receiver, receiver)
-      assert.equal(channel.value.toString(), channelValue.toString())
+      assert.equal(channelTotal(channel).toString(), channelValue.toString())
       assert.isTrue(await instance.isOpen(channelId))
     })
   })
@@ -154,9 +151,9 @@ contract('ABroker', accounts => {
   describe('deposit', () => {
     specify('increase channel value', async () => {
       let channelId = await createChannel(instance)
-      let balanceBefore = (await readChannel(instance, channelId)).value
+      let balanceBefore = channelTotal(await readChannel(instance, channelId))
       await instance.deposit(channelId, {value: channelValue, from: sender})
-      let balanceAfter = (await readChannel(instance, channelId)).value
+      let balanceAfter = channelTotal(await readChannel(instance, channelId))
       assert.equal(balanceAfter.toString(), balanceBefore.plus(channelValue).toString())
     })
 
@@ -258,7 +255,7 @@ contract('ABroker', accounts => {
     specify('move change to sender balance', async () => {
       let channelId = await createChannel(instance)
 
-      let channelValue = (await readChannel(instance, channelId)).value
+      let channelValue = channelTotal(await readChannel(instance, channelId))
       let change = channelValue.minus(payment)
 
       let startBalance = web3.eth.getBalance(sender)
@@ -292,8 +289,8 @@ contract('ABroker', accounts => {
       let tx = await instance.claim(channelId, payment, signature, {from: receiver})
       gasoline.add('delete Settling', 'claim', tx)
 
-      let settling = await readSettling(instance, channelId)
-      assert.equal(settling.until.toNumber(), 0)
+      let channel = await readChannel(instance, channelId)
+      assert.equal(channel.settlingUntil.toNumber(), 0)
       assert.isFalse(await instance.isSettling(channelId))
     })
 
@@ -388,8 +385,8 @@ contract('ABroker', accounts => {
       let channelId = await createChannel(instance, settlingPeriod)
       let tx = await instance.startSettling(channelId, {from: sender})
       let blockNumber = tx.receipt.blockNumber
-      let settling = await readSettling(instance, channelId)
-      assert.equal(settling.until.toNumber(), settlingPeriod + blockNumber)
+      let channel = await readChannel(instance, channelId)
+      assert.equal(channel.settlingUntil.toNumber(), settlingPeriod + blockNumber)
     })
 
     specify('not if sender', async () => {
@@ -453,10 +450,10 @@ contract('ABroker', accounts => {
       let channelId = await createChannel(instance, 2)
       await instance.startSettling(channelId, {from: sender})
       let canSettle = await instance.canSettle(channelId, sender)
-      let settling = await readSettling(instance, channelId)
+      let channel = await readChannel(instance, channelId)
       let blockNumber = (await getBlock(web3, 'latest')).number
       assert.isNotNull(blockNumber)
-      assert.isTrue(settling.until.toNumber() > blockNumber!)
+      assert.isTrue(channel.settlingUntil.toNumber() > blockNumber!)
       assert.isFalse(canSettle)
     })
   })
@@ -491,8 +488,8 @@ contract('ABroker', accounts => {
       let channelId = await createChannel(instance)
       await instance.startSettling(channelId, {from: sender})
       await instance.settle(channelId, {from: sender})
-      let settling = await readSettling(instance, channelId)
-      assert.equal(settling.until.toNumber(), 0)
+      let channel = await readChannel(instance, channelId)
+      assert.equal(channel.settlingUntil.toNumber(), 0)
     })
 
     specify('not if receiver', async () => {

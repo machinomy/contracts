@@ -8,20 +8,17 @@ import "zeppelin-solidity/contracts/ECRecovery.sol";
 contract ABroker is Destructible {
     using SafeMath for uint256;
 
-    struct Settling {
-        uint256 until;
-    }
-
     struct PaymentChannel {
         address sender;
         address receiver;
-        uint256 value;
+        uint256 toSender;
+        uint256 toReceiver;
 
         uint32 settlingPeriod;
+        uint256 settlingUntil;
     }
 
     mapping (bytes32 => PaymentChannel) public channels;
-    mapping (bytes32 => Settling) public settlings;
 
     uint32 public chainId;
     uint256 id;
@@ -42,8 +39,10 @@ contract ABroker is Destructible {
         channels[channelId] = PaymentChannel(
             msg.sender,
             receiver,
+            0,
             msg.value,
-            settlingPeriod
+            settlingPeriod,
+            0
         );
 
         DidOpen(channelId);
@@ -58,7 +57,7 @@ contract ABroker is Destructible {
     function deposit(bytes32 channelId) public payable {
         require(canDeposit(channelId, msg.sender));
 
-        channels[channelId].value += msg.value;
+        channels[channelId].toReceiver += msg.value;
 
         DidDeposit(channelId);
     }
@@ -72,7 +71,8 @@ contract ABroker is Destructible {
     function startSettling(bytes32 channelId) public {
         require(canStartSettling(channelId, msg.sender));
 
-        settlings[channelId] = Settling(block.number + channels[channelId].settlingPeriod);
+        var channel = channels[channelId];
+        channel.settlingUntil = block.number + channel.settlingPeriod;
 
         DidStartSettling(channelId);
     }
@@ -80,17 +80,15 @@ contract ABroker is Destructible {
     function canSettle(bytes32 channelId, address origin) public constant returns(bool) {
         var channel = channels[channelId];
         bool isSender = channel.sender == origin;
-        var settling = settlings[channelId];
-        bool isWaitingOver = block.number >= settling.until;
+        bool isWaitingOver = block.number >= channel.settlingUntil && isSettling(channelId);
         return isSender && isSettling(channelId) && isWaitingOver;
     }
 
     function settle(bytes32 channelId) public {
         require(canSettle(channelId, msg.sender));
         var channel = channels[channelId];
-        require(channel.sender.send(channel.value));
+        require(channel.sender.send(channel.toReceiver));
 
-        delete settlings[channelId];
         delete channels[channelId];
         DidSettle(channelId);
     }
@@ -109,15 +107,14 @@ contract ABroker is Destructible {
 
         var channel = channels[channelId];
 
-        if (payment > channel.value) {
-            require(channel.receiver.send(channel.value));
+        if (payment > channel.toReceiver) {
+            require(channel.receiver.send(channel.toReceiver));
         } else {
             require(channel.receiver.send(payment));
-            require(channel.sender.send(channel.value.sub(payment)));
+            require(channel.sender.send(channel.toReceiver.sub(payment)));
         }
 
         delete channels[channelId];
-        delete settlings[channelId];
 
         DidClaim(channelId);
     }
@@ -128,8 +125,8 @@ contract ABroker is Destructible {
     }
 
     function isSettling(bytes32 channelId) public constant returns(bool) {
-        var settling = settlings[channelId];
-        return settling.until != 0;
+        var channel = channels[channelId];
+        return channel.settlingUntil != 0;
     }
 
     function isOpen(bytes32 channelId) public constant returns(bool) {
