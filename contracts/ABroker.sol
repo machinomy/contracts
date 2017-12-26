@@ -117,6 +117,7 @@ contract ABroker is Destructible {
         }
 
         delete channels[channelId];
+        delete settlings[channelId];
 
         DidClaim(channelId);
     }

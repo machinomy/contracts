@@ -7,7 +7,7 @@ import * as abi from 'ethereumjs-abi'
 import * as util from 'ethereumjs-util'
 
 import { ABroker } from '../src/index'
-import {transactionPrice, getNetwork, Gasoline, getBlock} from './support'
+import { transactionPrice, getNetwork, Gasoline, getBlock } from './support'
 import ECRecovery from '../build/wrappers/ECRecovery'
 
 chai.use(asPromised)
@@ -271,18 +271,32 @@ contract('ABroker', accounts => {
       assert.isTrue(endBalance.minus(startBalance).eq(change))
     })
 
-    specify('delete channel', async () => {
+    specify('delete PaymentChannel', async () => {
       let channelId = await createChannel(instance)
 
       let signature = await sign(sender, instance, channelId, payment)
       let tx = await instance.claim(channelId, payment, signature, {from: receiver})
-      gasoline.add('delete channel', 'claim', tx)
+      gasoline.add('delete PaymentChannel', 'claim', tx)
 
       let channel = await readChannel(instance, channelId)
       assert.equal(channel.sender, '0x0000000000000000000000000000000000000000')
       assert.equal(channel.receiver, '0x0000000000000000000000000000000000000000')
       assert.isFalse(await instance.isPresent(channelId))
     })
+
+    specify('delete Settling', async () => {
+      let channelId = await createChannel(instance)
+
+      let signature = await sign(sender, instance, channelId, payment)
+      await instance.startSettling(channelId, {from: sender})
+      let tx = await instance.claim(channelId, payment, signature, {from: receiver})
+      gasoline.add('delete Settling', 'claim', tx)
+
+      let settling = await readSettling(instance, channelId)
+      assert.equal(settling.until.toNumber(), 0)
+      assert.isFalse(await instance.isSettling(channelId))
+    })
+
 
     specify('not if missing channel', async () => {
       let channelId = '0xdeadbeaf'
@@ -529,5 +543,72 @@ contract('ABroker', accounts => {
       let expected = await signatureDigest(instance.address, channelId, payment)
       assert.equal(digest, expected)
     })
+  })
+
+  specify('optimistic case: open -> claim', async () => {
+    // 1. Open Channel
+    let channelId = await createChannel(instance)
+
+    let senderBalanceBefore = web3.eth.getBalance(sender)
+    let receiverBalanceBefore = web3.eth.getBalance(receiver)
+
+    assert.equal(web3.eth.getBalance(instance.address).toString(), channelValue.toString())
+    assert.isTrue(await instance.isPresent(channelId))
+    assert.isTrue(await instance.isOpen(channelId))
+
+    // 2. Claim
+    let payment = new BigNumber(web3.toWei(0.01, 'ether'))
+    let paymentSignature = await sign(sender, instance, channelId, payment)
+    assert.isTrue(await instance.canClaim(channelId, payment, receiver, paymentSignature))
+    let claimCost = await transactionPrice(await instance.claim(channelId, payment, paymentSignature, {from: receiver}))
+
+    // Check
+    assert.isFalse(await instance.isPresent(channelId))
+    assert.isFalse(await instance.isSettling(channelId))
+
+    let senderBalanceAfter = web3.eth.getBalance(sender)
+    let change = channelValue.minus(payment)
+    assert.equal(senderBalanceAfter.toString(), senderBalanceBefore.plus(change).toString())
+
+    let receiverBalanceAfter = web3.eth.getBalance(receiver)
+    assert.equal(receiverBalanceAfter.minus(receiverBalanceBefore).toString(), payment.minus(claimCost).toString())
+
+    assert.equal(web3.eth.getBalance(instance.address).toNumber(), 0)
+  })
+
+  specify('pessimistic case: open -> startSettling -> claim', async () => {
+    // 1. Open Channel
+    let channelId = await createChannel(instance, 1)
+
+    let senderBalanceBefore = web3.eth.getBalance(sender)
+    let receiverBalanceBefore = web3.eth.getBalance(receiver)
+
+    assert.equal(web3.eth.getBalance(instance.address).toString(), channelValue.toString())
+    assert.isTrue(await instance.isPresent(channelId))
+    assert.isTrue(await instance.isOpen(channelId))
+
+    // 2. Start Settling
+    assert.isTrue(await instance.canStartSettling(channelId, sender))
+    let startSettlingCost = await transactionPrice(await instance.startSettling(channelId, {from: sender}))
+    assert.isFalse(await instance.canSettle(channelId, sender))
+
+    // 3. Claim
+    let payment = new BigNumber(web3.toWei(0.01, 'ether'))
+    let paymentSignature = await sign(sender, instance, channelId, payment)
+    assert.isTrue(await instance.canClaim(channelId, payment, receiver, paymentSignature))
+    let claimCost = await transactionPrice(await instance.claim(channelId, payment, paymentSignature, {from: receiver}))
+
+    // Check
+    assert.isFalse(await instance.isPresent(channelId))
+    assert.isFalse(await instance.isSettling(channelId))
+
+    let senderBalanceAfter = web3.eth.getBalance(sender)
+    let change = channelValue.minus(payment)
+    assert.equal(senderBalanceAfter.toString(), senderBalanceBefore.plus(change).minus(startSettlingCost).toString())
+
+    let receiverBalanceAfter = web3.eth.getBalance(receiver)
+    assert.equal(receiverBalanceAfter.minus(receiverBalanceBefore).toString(), payment.minus(claimCost).toString())
+
+    assert.equal(web3.eth.getBalance(instance.address).toNumber(), 0)
   })
 })
