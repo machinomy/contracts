@@ -51,7 +51,7 @@ contract BBroker is Destructible {
     function withdraw(bytes32 channelId, bytes proof, bytes32 preimage, int256 amount) public {
         var channel = channels[channelId];
         var hashlock = toHashlock(channelId, preimage, amount);
-        //var isOk = checkProof(proof, channel.root, hashlock);
+        require(checkProof(proof, channel.root, hashlock));
         if (amount >= 0) {
             var payment = uint256(amount);
             channel.value -= payment;
