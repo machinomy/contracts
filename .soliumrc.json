@@ -15,6 +15,7 @@
     "arg-overflow": [
       "warning",
       5
-    ]
+    ],
+    "security/no-inline-assembly": "off"
   }
 }
