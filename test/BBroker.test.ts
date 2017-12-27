@@ -47,9 +47,10 @@ contract('BBroker', accounts => {
     }
   }
 
-  async function openChannel (instance: BBroker.Contract): Promise<string> {
+  async function openChannel (instance: BBroker.Contract, _settlementPeriod?: number): Promise<string> {
     let options = { value: channelValue, from: sender }
-    let log = await instance.open(receiver, options)
+    let settlementPeriod = _settlementPeriod || 0
+    let log = await instance.open(receiver, settlementPeriod, options)
     let logEvent = log.logs[0]
     if (BBroker.isDidOpenEvent(logEvent)) {
       return logEvent.args.channelId

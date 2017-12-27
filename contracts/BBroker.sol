@@ -14,6 +14,8 @@ contract BBroker is Destructible {
         uint256 value;
 
         bytes32 root;
+
+        uint32 settlingPeriod;
     }
 
     mapping (bytes32 => PaymentChannel) public channels;
@@ -31,13 +33,14 @@ contract BBroker is Destructible {
         id = 0;
     }
 
-    function open(address receiver) public payable {
+    function open(address receiver, uint32 settlingPeriod) public payable {
         var channelId = keccak256(block.number + id++);
         channels[channelId] = PaymentChannel(
             msg.sender,
             receiver,
             msg.value,
-            0
+            0,
+            settlingPeriod
         );
         DidOpen(channelId);
     }
