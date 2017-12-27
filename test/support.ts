@@ -1,9 +1,23 @@
-import Web3 = require('web3')
-import { TransactionResult } from 'truffle-contract'
-import BigNumber from 'bignumber.js'
+import Web3 = require('web3');
 import * as truffle from 'truffle-contract'
+import {TransactionResult} from 'truffle-contract'
+import BigNumber from 'bignumber.js'
 
 export const GAS_PRICE = new BigNumber(100000000000)
+
+const EXTRA_DIGITS = 3
+export function randomId () {
+  const datePart = new Date().getTime() * Math.pow(10, EXTRA_DIGITS)
+  // 3 random digits
+  const extraPart = Math.floor(Math.random() * Math.pow(10, EXTRA_DIGITS))
+  // 16 digits
+  return datePart + extraPart
+}
+
+export function randomUnlock (_name?: string): string {
+  let name: string = _name || 'random'
+  return name + randomId().toString()
+}
 
 export async function transactionPrice (transactionResult: truffle.TransactionResult): Promise<BigNumber> {
   let amount = transactionResult.receipt.gasUsed
