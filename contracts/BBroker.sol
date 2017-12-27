@@ -52,6 +52,7 @@ contract BBroker is Destructible {
         var channel = channels[channelId];
         var hashlock = toHashlock(channelId, preimage, amount);
         require(checkProof(proof, channel.root, hashlock));
+
         if (amount >= 0) {
             var payment = uint256(amount);
             channel.value -= payment;
