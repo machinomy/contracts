@@ -103,7 +103,7 @@ contract BBroker is Destructible {
     /** Digest **/
     function isSignedPayment(bytes32 channelId, bytes32 merkleRoot, bytes senderSig, bytes receiverSig) public view returns(bool) {
         var channel = channels[channelId];
-        var digest = signatureDigest(channelId, merkleRoot);
+        var digest = signatureDigest(paymentDigest(channelId, merkleRoot));
         bool isSignedBySender = channel.sender == ECRecovery.recover(digest, senderSig);
         bool isSignedByReceiver = channel.receiver == ECRecovery.recover(digest, receiverSig);
         return isSignedBySender && isSignedByReceiver;
@@ -113,9 +113,9 @@ contract BBroker is Destructible {
         return keccak256(address(this), chainId, channelId, merkleRoot);
     }
 
-    function signatureDigest(bytes32 channelId, bytes32 merkleRoot) public constant returns(bytes32) {
+    function signatureDigest(bytes32 digest) public constant returns(bytes32) {
         bytes memory prefix = "\x19Ethereum Signed Message:\n32";
-        return keccak256(prefix, paymentDigest(channelId, merkleRoot));
+        return keccak256(prefix, digest);
     }
 
     /** Hashlocks and Merkle Trees **/

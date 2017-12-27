@@ -41,8 +41,7 @@ async function paymentDigest (address: string, channelId: string, merkleRoot: st
   return util.bufferToHex(hash)
 }
 
-async function signatureDigest (address: string, channelId: string, merkleRoot: string): Promise<string> {
-  let digest = await paymentDigest(address, channelId, merkleRoot)
+async function signatureDigest (address: string, digest: string): Promise<string> {
   let prefix = Buffer.from('\x19Ethereum Signed Message:\n32')
   let hash = abi.soliditySHA3(
     ['bytes', 'bytes32'],
@@ -405,10 +404,9 @@ contract('BBroker', accounts => {
 
   describe('signatureDigest', () => {
     specify('return prefixed hash to be signed', async () => {
-      let channelId = '0xdeadbeaf'
-      let merkleRoot = '0xdeadbeaf'
-      let digest = await instance.signatureDigest(channelId, merkleRoot)
-      let expected = await signatureDigest(instance.address, channelId, merkleRoot)
+      let hash = await instance.paymentDigest('0xcafe', '0xbabe')
+      let digest = await instance.signatureDigest(hash)
+      let expected = await signatureDigest(instance.address, hash)
       assert.equal(digest, expected)
     })
   })
