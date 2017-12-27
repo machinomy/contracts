@@ -20,6 +20,7 @@ interface PaymentChannel {
   sender: string
   receiver: string
   value: BigNumber
+  root: string
 }
 
 interface Hashlock {
@@ -59,8 +60,8 @@ contract('BBroker', accounts => {
   }
 
   async function readChannel (instance: BBroker.Contract, channelId: string): Promise<PaymentChannel> {
-    let [ sender, receiver, value ]= await instance.channels(channelId)
-    return { sender, receiver, value }
+    let [ sender, receiver, value, root ]= await instance.channels(channelId)
+    return { sender, receiver, value, root }
   }
 
   async function packHashlock (channelId: string, hashlock: Hashlock): Promise<string> {
@@ -97,6 +98,88 @@ contract('BBroker', accounts => {
       assert.equal(channel.sender, sender)
       assert.equal(channel.receiver, receiver)
       assert.equal(channel.value.toString(), channelValue.toString())
+    })
+  })
+
+  describe('startSettling', () => {
+    let merkleRoot = util.bufferToHex(abi.rawEncode(['bytes32'], ['0xcafebabe']))
+
+    specify('emit DidStartSettling event', async () => {
+      let channelId = await openChannel(instance, randomUnlock())
+      let tx = await instance.startSettling(channelId, merkleRoot, '0xdeadbeaf', '0xdeadbeaf')
+      assert.equal(tx.logs[0].event, 'DidStartSettling')
+    })
+
+    specify('set root', async () => {
+      let channelId = await openChannel(instance, randomUnlock())
+      await instance.startSettling(channelId, merkleRoot, '0xdeadbeaf', '0xdeadbeaf')
+      let channel = await readChannel(instance, channelId)
+      assert.equal(channel.root, merkleRoot)
+    })
+  })
+
+  describe('withdraw', () => {
+    let merkleRoot = util.bufferToHex(abi.rawEncode(['bytes32'], ['0xcafebabe']))
+
+    context('if correct proof', () => {
+      specify('decrease channel value', async () => {
+        let channelId = await openChannel(instance, randomUnlock())
+        let amount = new BigNumber(web3.toWei(0.01, 'ether'))
+        let valueBefore = (await readChannel(instance, channelId)).value
+        await instance.startSettling(channelId, merkleRoot, '0xdeadbeaf', '0xdeadbeaf')
+        await instance.withdraw(channelId, merkleRoot, '0xdeadbeaf', amount)
+        let valueAfter = (await readChannel(instance, channelId)).value
+        assert.equal(valueAfter.minus(valueBefore).toString(), amount.mul(-1).toString())
+      })
+
+      specify('decrease contract balance', async () => {
+        let channelId = await openChannel(instance, randomUnlock())
+        let amount = new BigNumber(web3.toWei(0.01, 'ether'))
+        let valueBefore = web3.eth.getBalance(instance.address)
+        await instance.startSettling(channelId, merkleRoot, '0xdeadbeaf', '0xdeadbeaf')
+        await instance.withdraw(channelId, merkleRoot, '0xdeadbeaf', amount)
+        let valueAfter = web3.eth.getBalance(instance.address)
+        assert.equal(valueAfter.minus(valueBefore).toString(), amount.mul(-1).toString())
+      })
+
+      specify('increase receiver balance', async () => {
+        let channelId = await openChannel(instance, randomUnlock())
+        let amount = new BigNumber(web3.toWei(0.01, 'ether'))
+        let valueBefore = web3.eth.getBalance(receiver)
+        await instance.startSettling(channelId, merkleRoot, '0xdeadbeaf', '0xdeadbeaf')
+        await instance.withdraw(channelId, merkleRoot, '0xdeadbeaf', amount)
+        let valueAfter = web3.eth.getBalance(receiver)
+        assert.equal(valueAfter.minus(valueBefore).toString(), amount.toString())
+      })
+
+      specify('emit DidWithdraw event', async () => {
+        let channelId = await openChannel(instance, randomUnlock())
+        let amount = new BigNumber(web3.toWei(0.01, 'ether'))
+        await instance.startSettling(channelId, merkleRoot, '0xdeadbeaf', '0xdeadbeaf')
+        let tx = await instance.withdraw(channelId, merkleRoot, '0xdeadbeaf', amount)
+        assert.isTrue(tx.logs.some(BBroker.isDidWithdrawEvent))
+      })
+
+      context('if last withdrawal', () => {
+        specify('delete channel', async () => {
+          let channelId = await openChannel(instance, randomUnlock())
+          await instance.startSettling(channelId, merkleRoot, '0xdeadbeaf', '0xdeadbeaf')
+          await instance.withdraw(channelId, merkleRoot, '0xdeadbeaf', channelValue)
+          let valueAfter = (await readChannel(instance, channelId)).value
+          assert.equal(valueAfter.toString(), '0')
+          assert.isFalse(await instance.isPresent(channelId))
+        })
+        specify('emit DidClose event', async () => {
+          let channelId = await openChannel(instance, randomUnlock())
+          await instance.startSettling(channelId, merkleRoot, '0xdeadbeaf', '0xdeadbeaf')
+          let tx = await instance.withdraw(channelId, merkleRoot, '0xdeadbeaf', channelValue)
+          assert.isTrue(tx.logs.some(BBroker.isDidCloseEvent))
+        })
+      })
+    })
+
+    context('if incorrect proof', () => {
+      specify('fail')
     })
   })
 

@@ -12,6 +12,8 @@ contract BBroker is Destructible {
         address sender;
         address receiver;
         uint256 value;
+
+        bytes32 root;
     }
 
     mapping (bytes32 => PaymentChannel) public channels;
@@ -20,6 +22,9 @@ contract BBroker is Destructible {
     uint256 id;
 
     event DidOpen(bytes32 indexed channelId);
+    event DidStartSettling(bytes32 indexed channelId);
+    event DidWithdraw(bytes32 indexed channelId, int256 amount);
+    event DidClose(bytes32 indexed channelId);
 
     function BBroker(uint32 _chainId) public {
         chainId = _chainId;
@@ -31,13 +36,40 @@ contract BBroker is Destructible {
         channels[channelId] = PaymentChannel(
             msg.sender,
             receiver,
-            msg.value
+            msg.value,
+            0
         );
         DidOpen(channelId);
     }
 
-    function toHashlock(bytes32 channelId, bytes32 preimage, int256 adjustment) public view returns (bytes32) {
-        return keccak256(chainId, channelId, preimage, adjustment);
+    function startSettling(bytes32 channelId, bytes32 root, bytes senderSig, bytes receiverSig) public {
+        var channel = channels[channelId];
+        channel.root = root;
+        DidStartSettling(channelId);
+    }
+
+    function withdraw(bytes32 channelId, bytes proof, bytes32 preimage, int256 amount) public {
+        var channel = channels[channelId];
+        var hashlock = toHashlock(channelId, preimage, amount);
+        //var isOk = checkProof(proof, channel.root, hashlock);
+        if (amount >= 0) {
+            var payment = uint256(amount);
+            channel.value -= payment;
+            require(channel.receiver.send(payment));
+        }
+
+        DidWithdraw(channelId, amount);
+
+        if (channel.value == 0) {
+            delete channels[channelId];
+            DidClose(channelId);
+        }
+    }
+
+    /** Hashlocks and Merkle Trees **/
+
+    function toHashlock(bytes32 channelId, bytes32 preimage, int256 amount) public view returns (bytes32) {
+        return keccak256(chainId, channelId, preimage, amount);
     }
 
     function checkProof(bytes proof, bytes32 root, bytes32 hashlock) public pure returns (bool) {
@@ -55,5 +87,11 @@ contract BBroker is Destructible {
         }
 
         return cursor == root;
+    }
+
+    /** Channel State **/
+    function isPresent(bytes32 channelId) public view returns(bool) {
+        var channel = channels[channelId];
+        return channel.sender != 0;
     }
 }

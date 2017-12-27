@@ -8,6 +8,7 @@ import TokenBroker from '../build/wrappers/TokenBroker'
 import ERC20 from '../build/wrappers/ERC20'
 import ABroker from '../build/wrappers/ABroker'
 import BBroker from '../build/wrappers/BBroker'
+import MerkleTree from './MerkleTree'
 
 const BN = require('bn.js')
 
@@ -16,7 +17,8 @@ export {
   TokenBroker,
   ERC20,
   ABroker,
-  BBroker
+  BBroker,
+  MerkleTree
 }
 
 export interface Signature {
@@ -41,14 +43,6 @@ export function paymentDigest (channelId: string, value: BigNumber, contractAddr
   let digest = abi.soliditySHA3(
     ['bytes32', 'uint256', 'address', 'uint32'],
     [channelId.toString(), new BigNumber(value).toString(), new BN(contractAddress, 16), chainId]
-  )
-  return util.bufferToHex(digest)
-}
-
-export function bidiPaymentDigest (channelId: string, nonce: number, payment: number|BigNumber, contractAddress: string, chainId: number): string {
-  let digest = abi.soliditySHA3(
-    ['bytes32', 'uint32', 'uint256', 'address', 'uint32'],
-    [channelId, nonce, payment.toString(), contractAddress, chainId]
   )
   return util.bufferToHex(digest)
 }
