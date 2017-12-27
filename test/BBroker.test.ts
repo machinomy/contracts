@@ -24,6 +24,7 @@ interface PaymentChannel {
   root: string
   settlingPeriod: BigNumber
   settlingUntil: BigNumber
+  nonce: BigNumber
 }
 
 interface Hashlock {
@@ -81,8 +82,8 @@ contract('BBroker', accounts => {
   }
 
   async function readChannel (instance: BBroker.Contract, channelId: string): Promise<PaymentChannel> {
-    let [ sender, receiver, value, root, settlingPeriod, settlingUntil ]= await instance.channels(channelId)
-    return { sender, receiver, value, root, settlingPeriod, settlingUntil }
+    let [ sender, receiver, value, root, settlingPeriod, settlingUntil, nonce ]= await instance.channels(channelId)
+    return { sender, receiver, value, root, settlingPeriod, settlingUntil, nonce }
   }
 
   async function packHashlock (channelId: string, hashlock: Hashlock): Promise<string> {
