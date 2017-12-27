@@ -52,9 +52,12 @@ contract BBroker is Destructible {
     }
 
     function startSettling(bytes32 channelId, bytes32 merkleRoot, bytes senderSig, bytes receiverSig) public {
+        require(canStartSettling(channelId, merkleRoot, senderSig, receiverSig));
         var channel = channels[channelId];
+
         channel.merkleRoot = merkleRoot;
         channel.settlingUntil = block.number + channel.settlingPeriod;
+
         DidStartSettling(channelId);
     }
 
