@@ -13,7 +13,7 @@ contract BBroker is Destructible {
         address receiver;
         uint256 value;
 
-        bytes32 root;
+        bytes32 merkleRoot;
 
         uint32 settlingPeriod;
         uint256 settlingUntil;
@@ -40,16 +40,20 @@ contract BBroker is Destructible {
             msg.sender,
             receiver,
             msg.value,
-            0,
+            0, // merkleRoot
             settlingPeriod,
-            0
+            0 // settlingUntil
         );
         DidOpen(channelId);
     }
 
-    function startSettling(bytes32 channelId, bytes32 root, bytes senderSig, bytes receiverSig) public {
+    function canStartSettling(bytes32 channelId, bytes32 merkleRoot, bytes senderSig, bytes receiverSig) public view returns(bool) {
+        return isOpen(channelId) && isSignedPayment(channelId, merkleRoot, senderSig, receiverSig);
+    }
+
+    function startSettling(bytes32 channelId, bytes32 merkleRoot, bytes senderSig, bytes receiverSig) public {
         var channel = channels[channelId];
-        channel.root = root;
+        channel.merkleRoot = merkleRoot;
         channel.settlingUntil = block.number + channel.settlingPeriod;
         DidStartSettling(channelId);
     }
@@ -57,7 +61,7 @@ contract BBroker is Destructible {
     function withdraw(bytes32 channelId, bytes proof, bytes32 preimage, int256 amount) public {
         var channel = channels[channelId];
         var hashlock = toHashlock(channelId, preimage, amount);
-        require(checkProof(proof, channel.root, hashlock));
+        require(checkProof(proof, channel.merkleRoot, hashlock));
 
         if (amount >= 0) {
             var payment = uint256(amount);
@@ -73,13 +77,31 @@ contract BBroker is Destructible {
         }
     }
 
+    /** Digest **/
+    function isSignedPayment(bytes32 channelId, bytes32 merkleRoot, bytes senderSig, bytes receiverSig) public view returns(bool) {
+        var channel = channels[channelId];
+        var digest = signatureDigest(channelId, merkleRoot);
+        bool isSignedBySender = channel.sender == ECRecovery.recover(digest, senderSig);
+        bool isSignedByReceiver = channel.receiver == ECRecovery.recover(digest, receiverSig);
+        return isSignedBySender && isSignedByReceiver;
+    }
+
+    function paymentDigest(bytes32 channelId, bytes32 merkleRoot) public constant returns(bytes32) {
+        return keccak256(address(this), chainId, channelId, merkleRoot);
+    }
+
+    function signatureDigest(bytes32 channelId, bytes32 merkleRoot) public constant returns(bytes32) {
+        bytes memory prefix = "\x19Ethereum Signed Message:\n32";
+        return keccak256(prefix, paymentDigest(channelId, merkleRoot));
+    }
+
     /** Hashlocks and Merkle Trees **/
 
     function toHashlock(bytes32 channelId, bytes32 preimage, int256 amount) public view returns (bytes32) {
         return keccak256(chainId, channelId, preimage, amount);
     }
 
-    function checkProof(bytes proof, bytes32 root, bytes32 hashlock) public pure returns (bool) {
+    function checkProof(bytes proof, bytes32 merkleRoot, bytes32 hashlock) public pure returns (bool) {
         bytes32 proofElement;
         bytes32 cursor = hashlock;
 
@@ -93,7 +115,7 @@ contract BBroker is Destructible {
             }
         }
 
-        return cursor == root;
+        return cursor == merkleRoot;
     }
 
     /** Channel State **/
@@ -102,12 +124,12 @@ contract BBroker is Destructible {
         return channel.sender != 0;
     }
 
-    function isSettling(bytes32 channelId) public constant returns(bool) {
+    function isSettling(bytes32 channelId) public view returns(bool) {
         var channel = channels[channelId];
         return channel.settlingUntil != 0;
     }
 
-    function isOpen(bytes32 channelId) public constant returns(bool) {
+    function isOpen(bytes32 channelId) public view returns(bool) {
         return isPresent(channelId) && !isSettling(channelId);
     }
 }

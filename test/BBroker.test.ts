@@ -31,6 +31,25 @@ interface Hashlock {
   adjustment: BigNumber
 }
 
+async function paymentDigest (address: string, channelId: string, merkleRoot: string): Promise<string> {
+  let chainId = await getNetwork(web3)
+  let hash = abi.soliditySHA3(
+    ['address', 'uint32', 'bytes32', 'bytes32'],
+    [address, chainId, channelId, merkleRoot]
+  )
+  return util.bufferToHex(hash)
+}
+
+async function signatureDigest (address: string, channelId: string, merkleRoot: string): Promise<string> {
+  let digest = await paymentDigest(address, channelId, merkleRoot)
+  let prefix = Buffer.from('\x19Ethereum Signed Message:\n32')
+  let hash = abi.soliditySHA3(
+    ['bytes', 'bytes32'],
+    [prefix, digest]
+  )
+  return util.bufferToHex(hash)
+}
+
 contract('BBroker', accounts => {
   let sender = accounts[0]
   let receiver = accounts[1]
@@ -83,6 +102,20 @@ contract('BBroker', accounts => {
     return '0x' + proof.map(e => e.toString('hex')).join('')
   }
 
+  async function sign (origin: string, channelId: string, merkleRoot: string): Promise<string> {
+    let digest = await paymentDigest(instance.address, channelId, merkleRoot)
+    return new Promise<string>((resolve, reject) => {
+      web3.eth.sign(origin, digest, (error, signature) => {
+        if (error) {
+          reject(error)
+        } else {
+          resolve(signature)
+        }
+      })
+    })
+  }
+
+
   let instance: BBroker.Contract
 
   before(async () => {
@@ -113,6 +146,51 @@ contract('BBroker', accounts => {
     })
   })
 
+  describe('canStartSettling', () => {
+    specify('ok', async () => {
+      let channelId = await openChannel(instance)
+      let merkleRoot = '0xcafebabe'
+      let senderSig = await sign(sender, channelId, merkleRoot)
+      let receiverSig = await sign(receiver, channelId, merkleRoot)
+      assert.isTrue(await instance.isSignedPayment(channelId, merkleRoot, senderSig, receiverSig))
+      assert.isTrue(await instance.canStartSettling(channelId, merkleRoot, senderSig, receiverSig))
+    })
+
+    specify('not if settling', async () => {
+      let channelId = await openChannel(instance)
+      let merkleRoot = '0xcafebabe'
+      let senderSig = await sign(sender, channelId, merkleRoot)
+      let receiverSig = await sign(receiver, channelId, merkleRoot)
+      await instance.startSettling(channelId, merkleRoot, senderSig, receiverSig)
+      assert.isFalse(await instance.canStartSettling(channelId, merkleRoot, senderSig, receiverSig))
+    })
+
+    specify('not if missing channel', async () => {
+      let channelId = '0xcafebabe'
+      let merkleRoot = '0xcafebabe'
+      let senderSig = await sign(sender, channelId, merkleRoot)
+      let receiverSig = await sign(receiver, channelId, merkleRoot)
+      await instance.startSettling(channelId, merkleRoot, senderSig, receiverSig)
+      assert.isFalse(await instance.canStartSettling(channelId, merkleRoot, senderSig, receiverSig))
+    })
+
+    specify('not if not signed by sender', async () => {
+      let channelId = await openChannel(instance)
+      let merkleRoot = '0xcafebabe'
+      let receiverSig = await sign(receiver, channelId, merkleRoot)
+
+      assert.isFalse(await instance.canStartSettling(channelId, merkleRoot, '0xdeadbeaf', receiverSig))
+    })
+
+    specify('not if not signed by receiver', async () => {
+      let channelId = await openChannel(instance)
+      let merkleRoot = '0xcafebabe'
+      let senderSig = await sign(sender, channelId, merkleRoot)
+
+      assert.isFalse(await instance.canStartSettling(channelId, merkleRoot, senderSig, '0xdeadbeaf'))
+    })
+  })
+
   describe('startSettling', () => {
     specify('emit DidStartSettling event', async () => {
       let channelId = await openChannel(instance)
@@ -129,7 +207,16 @@ contract('BBroker', accounts => {
     })
 
     specify('set channel.settlingUntil', async () => {
-      let settlingPeriod =2
+      let settlingPeriod = 2
+      let channelId = await openChannel(instance, settlingPeriod)
+      let tx = await instance.startSettling(channelId, '0xcafebabe', '0xdeadbeaf', '0xdeadbeaf')
+      let blockNumber = tx.receipt.blockNumber
+      let channel = await readChannel(instance, channelId)
+      assert.equal(channel.settlingUntil.toNumber(), settlingPeriod + blockNumber)
+    })
+
+    specify('affect isSettling', async () => {
+      let settlingPeriod = 2
       let channelId = await openChannel(instance, settlingPeriod)
       let tx = await instance.startSettling(channelId, '0xcafebabe', '0xdeadbeaf', '0xdeadbeaf')
       let blockNumber = tx.receipt.blockNumber
@@ -286,6 +373,52 @@ contract('BBroker', accounts => {
       let channelId = '0xdeadbeaf'
       assert.isFalse(await instance.isPresent(channelId))
       assert.isFalse(await instance.isOpen(channelId))
+    })
+  })
+
+  describe('paymentDigest', () => {
+    specify('return hash of the payment', async () => {
+      let channelId = '0xdeadbeaf'
+      let merkleRoot = '0xdeadbeaf'
+      let digest = await instance.paymentDigest(channelId, merkleRoot)
+      let expected = await paymentDigest(instance.address, channelId, merkleRoot)
+      assert.equal(digest.toString(), expected.toString())
+    })
+  })
+
+  describe('signatureDigest', () => {
+    specify('return prefixed hash to be signed', async () => {
+      let channelId = '0xdeadbeaf'
+      let merkleRoot = '0xdeadbeaf'
+      let digest = await instance.signatureDigest(channelId, merkleRoot)
+      let expected = await signatureDigest(instance.address, channelId, merkleRoot)
+      assert.equal(digest, expected)
+    })
+  })
+
+  describe('isSignedPayment', () => {
+    specify('ok', async () => {
+      let channelId = await openChannel(instance)
+      let merkleRoot = '0xcafebabe'
+      let senderSig = await sign(sender, channelId, merkleRoot)
+      let receiverSig = await sign(receiver, channelId, merkleRoot)
+      assert.isTrue(await instance.isSignedPayment(channelId, merkleRoot, senderSig, receiverSig))
+    })
+
+    specify('not if not signed by sender', async () => {
+      let channelId = await openChannel(instance)
+      let merkleRoot = '0xcafebabe'
+      let receiverSig = await sign(receiver, channelId, merkleRoot)
+
+      assert.isFalse(await instance.isSignedPayment(channelId, merkleRoot, '0xdeadbeaf', receiverSig))
+    })
+
+    specify('not if not signed by receiver', async () => {
+      let channelId = await openChannel(instance)
+      let merkleRoot = '0xcafebabe'
+      let senderSig = await sign(sender, channelId, merkleRoot)
+
+      assert.isFalse(await instance.isSignedPayment(channelId, merkleRoot, senderSig, '0xdeadbeaf'))
     })
   })
 })
