@@ -53,19 +53,33 @@ contract BBroker is Destructible {
         DidOpen(channelId);
     }
 
-    function canStartSettling(bytes32 channelId, bytes32 merkleRoot, bytes senderSig, bytes receiverSig) public view returns(bool) {
-        return isOpen(channelId) && isSignedPayment(channelId, merkleRoot, senderSig, receiverSig);
+    function canStartSettling(bytes32 channelId, address origin) public view returns(bool) {
+        var channel = channels[channelId];
+        bool isParty = (channel.sender == origin) || (channel.receiver == origin);
+        return isOpen(channelId) && isParty;
     }
 
     function startSettling(bytes32 channelId, bytes32 merkleRoot, bytes senderSig, bytes receiverSig) public {
-        require(canStartSettling(channelId, merkleRoot, senderSig, receiverSig));
+        require(canStartSettling(channelId, msg.sender));
         var channel = channels[channelId];
-
-        channel.merkleRoot = merkleRoot;
         channel.settlingUntil = block.number + channel.settlingPeriod;
 
         DidStartSettling(channelId);
     }
+
+//    function canStartSettling(bytes32 channelId, bytes32 merkleRoot, bytes senderSig, bytes receiverSig) public view returns(bool) {
+//        return isOpen(channelId) && isSignedPayment(channelId, merkleRoot, senderSig, receiverSig);
+//    }
+//
+//    function startSettling(bytes32 channelId, bytes32 merkleRoot, bytes senderSig, bytes receiverSig) public {
+//        require(canStartSettling(channelId, merkleRoot, senderSig, receiverSig));
+//        var channel = channels[channelId];
+//
+//        channel.merkleRoot = merkleRoot;
+//        channel.settlingUntil = block.number + channel.settlingPeriod;
+//
+//        DidStartSettling(channelId);
+//    }
 
     function withdraw(bytes32 channelId, bytes proof, bytes32 preimage, int256 amount) public {
         var channel = channels[channelId];
