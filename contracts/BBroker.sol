@@ -16,6 +16,7 @@ contract BBroker is Destructible {
         bytes32 root;
 
         uint32 settlingPeriod;
+        uint256 settlingUntil;
     }
 
     mapping (bytes32 => PaymentChannel) public channels;
@@ -40,7 +41,8 @@ contract BBroker is Destructible {
             receiver,
             msg.value,
             0,
-            settlingPeriod
+            settlingPeriod,
+            0
         );
         DidOpen(channelId);
     }
