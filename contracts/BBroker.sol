@@ -37,15 +37,18 @@ contract BBroker is Destructible {
     }
 
     function open(address receiver, uint32 settlingPeriod) public payable {
-        var channelId = keccak256(block.number + id++);
+        bytes32 channelId = keccak256(block.number + id++);
+        bytes32 merkleRoot = 0;
+        uint256 settlingUntil = 0;
+        uint32 nonce;
         channels[channelId] = PaymentChannel(
             msg.sender,
             receiver,
             msg.value,
-            0, // merkleRoot
+            merkleRoot,
             settlingPeriod,
-            0, // settlingUntil
-            0
+            settlingUntil,
+            nonce
         );
         DidOpen(channelId);
     }
