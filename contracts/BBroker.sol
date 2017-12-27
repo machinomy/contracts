@@ -50,6 +50,7 @@ contract BBroker is Destructible {
     function startSettling(bytes32 channelId, bytes32 root, bytes senderSig, bytes receiverSig) public {
         var channel = channels[channelId];
         channel.root = root;
+        channel.settlingUntil = block.number + channel.settlingPeriod;
         DidStartSettling(channelId);
     }
 
@@ -99,5 +100,14 @@ contract BBroker is Destructible {
     function isPresent(bytes32 channelId) public view returns(bool) {
         var channel = channels[channelId];
         return channel.sender != 0;
+    }
+
+    function isSettling(bytes32 channelId) public constant returns(bool) {
+        var channel = channels[channelId];
+        return channel.settlingUntil != 0;
+    }
+
+    function isOpen(bytes32 channelId) public constant returns(bool) {
+        return isPresent(channelId) && !isSettling(channelId);
     }
 }

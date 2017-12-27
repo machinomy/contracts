@@ -114,19 +114,27 @@ contract('BBroker', accounts => {
   })
 
   describe('startSettling', () => {
-    let merkleRoot = util.bufferToHex(abi.rawEncode(['bytes32'], ['0xcafebabe']))
-
     specify('emit DidStartSettling event', async () => {
       let channelId = await openChannel(instance)
       let tx = await instance.startSettling(channelId, '0xcafebabe', '0xdeadbeaf', '0xdeadbeaf')
-      assert.equal(tx.logs[0].event, 'DidStartSettling')
+      assert.isTrue(tx.logs.some(BBroker.isDidStartSettlingEvent))
     })
 
     specify('set channel.root', async () => {
+      let merkleRoot = util.bufferToHex(abi.rawEncode(['bytes32'], ['0xcafebabe']))
       let channelId = await openChannel(instance)
       await instance.startSettling(channelId, merkleRoot, '0xdeadbeaf', '0xdeadbeaf')
       let channel = await readChannel(instance, channelId)
       assert.equal(channel.root, merkleRoot)
+    })
+
+    specify('set channel.settlingUntil', async () => {
+      let settlingPeriod =2
+      let channelId = await openChannel(instance, settlingPeriod)
+      let tx = await instance.startSettling(channelId, '0xcafebabe', '0xdeadbeaf', '0xdeadbeaf')
+      let blockNumber = tx.receipt.blockNumber
+      let channel = await readChannel(instance, channelId)
+      assert.equal(channel.settlingUntil.toNumber(), settlingPeriod + blockNumber)
     })
   })
 
@@ -230,6 +238,54 @@ contract('BBroker', accounts => {
       }
       let rawHashlock = await instance.toHashlock(channelId, hashlock.preimage, hashlock.adjustment)
       assert.equal(rawHashlock, await packHashlock(channelId, hashlock))
+    })
+  })
+
+  describe('isPresent', () => {
+    specify('if channel exists', async () => {
+      let channelId = await openChannel(instance)
+      assert.isTrue(await instance.isPresent(channelId))
+    })
+
+    specify('not if missing channel', async () => {
+      let channelId = '0xdeadbeaf'
+      assert.isFalse(await instance.isPresent(channelId))
+    })
+  })
+
+  describe('isSettling', () => {
+    specify('if channel.settlingUntil', async () => {
+      let channelId = await openChannel(instance)
+      await instance.startSettling(channelId, '0xcafebabe', '0xdeadbeaf', '0xdeadbeaf')
+      let channel = await readChannel(instance, channelId)
+      assert.notEqual(channel.settlingUntil.toNumber(), 0)
+      assert.isTrue(await instance.isSettling(channelId))
+    })
+
+    specify('not if missing channel', async () => {
+      let channelId = '0xdeadbeaf'
+      assert.isFalse(await instance.isSettling(channelId))
+    })
+  })
+
+  describe('isOpen', () => {
+    specify('if present', async () => {
+      let channelId = await openChannel(instance)
+      assert.isTrue(await instance.isOpen(channelId))
+    })
+
+    specify('not if settling', async () => {
+      let channelId = await openChannel(instance)
+      await instance.startSettling(channelId, '0xcafebabe', '0xdeadbeaf', '0xdeadbeaf')
+      assert.isTrue(await instance.isPresent(channelId))
+      assert.isTrue(await instance.isSettling(channelId))
+      assert.isFalse(await instance.isOpen(channelId))
+    })
+
+    specify('not if missing channel', async () => {
+      let channelId = '0xdeadbeaf'
+      assert.isFalse(await instance.isPresent(channelId))
+      assert.isFalse(await instance.isOpen(channelId))
     })
   })
 })
