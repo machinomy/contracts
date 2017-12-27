@@ -12,11 +12,6 @@ contract BBroker is Destructible {
         address sender;
         address receiver;
         uint256 value;
-
-        bytes hashlocks;
-
-        uint32 settlingPeriod;
-        uint256 settlingUntil;
     }
 
     mapping (bytes32 => PaymentChannel) public channels;
@@ -31,25 +26,34 @@ contract BBroker is Destructible {
         id = 0;
     }
 
-    function open(address receiver, bytes32 lock, uint32 settlingPeriod) public payable {
+    function open(address receiver) public payable {
         var channelId = keccak256(block.number + id++);
-        var hashlocks = toHashlock(lock, -1 * int256(msg.value));
         channels[channelId] = PaymentChannel(
             msg.sender,
             receiver,
-            msg.value,
-            hashlocks,
-            settlingPeriod,
-            0
+            msg.value
         );
         DidOpen(channelId);
     }
 
-    function toHashlock(bytes32 lock, int256 adjustment) public pure returns (bytes b) {
-        b = new bytes(64);
-        assembly {
-            mstore(add(b, 32), lock)
-            mstore(add(b, 64), adjustment)
+    function toHashlock(bytes32 channelId, bytes32 preimage, int256 adjustment) public view returns (bytes32) {
+        return keccak256(chainId, channelId, preimage, adjustment);
+    }
+
+    function checkProof(bytes proof, bytes32 root, bytes32 hashlock) public pure returns (bool) {
+        bytes32 proofElement;
+        bytes32 cursor = hashlock;
+
+        for (uint256 i = 32; i <= proof.length; i += 32) {
+            assembly { proofElement := mload(add(proof, i)) }
+
+            if (cursor < proofElement) {
+                cursor = keccak256(cursor, proofElement);
+            } else {
+                cursor = keccak256(proofElement, cursor);
+            }
         }
+
+        return cursor == root;
     }
 }

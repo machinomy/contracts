@@ -9,7 +9,6 @@ import * as util from 'ethereumjs-util'
 import {BBroker} from '../src/index'
 import {getNetwork, randomUnlock} from './support'
 import ECRecovery from '../build/wrappers/ECRecovery'
-import BN = require('bn.js');
 
 chai.use(asPromised)
 
@@ -21,13 +20,10 @@ interface PaymentChannel {
   sender: string
   receiver: string
   value: BigNumber
-  hashlocks: string,
-  settlingPeriod: BigNumber
-  settlingUntil: BigNumber
 }
 
 interface Hashlock {
-  lock: string
+  preimage: string
   adjustment: BigNumber
 }
 
@@ -53,7 +49,7 @@ contract('BBroker', accounts => {
     let options = { value: channelValue, from: sender }
     let lock = web3.sha3(unlock)
     let settlingPeriod = _settlingPeriod || 0
-    let log = await instance.open(receiver, lock, settlingPeriod, options)
+    let log = await instance.open(receiver, options)
     let logEvent = log.logs[0]
     if (BBroker.isDidOpenEvent(logEvent)) {
       return logEvent.args.channelId
@@ -63,36 +59,16 @@ contract('BBroker', accounts => {
   }
 
   async function readChannel (instance: BBroker.Contract, channelId: string): Promise<PaymentChannel> {
-    let [sender, receiver, value, hashlocks, settlingPeriod, settlingUntil] = await instance.channels(channelId)
-    return { sender, receiver, value, hashlocks, settlingPeriod, settlingUntil }
+    let [ sender, receiver, value ]= await instance.channels(channelId)
+    return { sender, receiver, value }
   }
 
-  function packHashlock (hashlock: Hashlock): string {
-    let lockBuffer = abi.rawEncode(['bytes32', 'int256'], [hashlock.lock, hashlock.adjustment.toString()])
-    return util.bufferToHex(lockBuffer)
-  }
-
-  function unpackHashlock (hashlock: string): Hashlock {
-    let [lock, adjustment] = abi.rawDecode<[Buffer, BN]>(['bytes32', 'int256'], util.toBuffer(hashlock))
-    return {
-      lock: util.bufferToHex(lock),
-      adjustment: new BigNumber(adjustment.toString())
-    }
-  }
-
-  function decodeHashlocks (raw: string): Array<Hashlock> {
-    let rawBuffer = util.toBuffer(raw)
-    if (rawBuffer.length % 64 != 0) {
-      throw new Error('Wrong length of the encoded hashlocks')
-    } else {
-      let i: number
-      let result = []
-      for (i = 0; i < rawBuffer.length; i += 64) {
-        let element = rawBuffer.slice(i, i + 64)
-        result.push(unpackHashlock(util.bufferToHex(element)))
-      }
-      return result
-    }
+  async function packHashlock (channelId: string, hashlock: Hashlock): Promise<string> {
+    let hashlockBuffer = abi.soliditySHA3(
+      ['uint32', 'bytes32', 'bytes32', 'int256'],
+      [(await getNetwork(web3)), channelId, hashlock.preimage, hashlock.adjustment.toString()]
+    )
+    return util.bufferToHex(hashlockBuffer)
   }
 
   let instance: BBroker.Contract
@@ -121,30 +97,18 @@ contract('BBroker', accounts => {
       assert.equal(channel.sender, sender)
       assert.equal(channel.receiver, receiver)
       assert.equal(channel.value.toString(), channelValue.toString())
-      let recovered = decodeHashlocks(channel.hashlocks)
-      assert.equal(recovered.length, 1)
-      let hashlock = recovered[0]
-      assert.equal(hashlock.lock, web3.sha3(unlock))
-      assert.equal(hashlock.adjustment.toString(), channelValue.mul(-1).toString())
     })
   })
 
   describe('toHashlock', () => {
     specify('return packed lock, adjustment', async () => {
+      let channelId = '0xdeadbeaf'
       let hashlock: Hashlock = {
-        lock: web3.sha3('hello'),
+        preimage: web3.sha3('hello'),
         adjustment: channelValue.mul(-1)
       }
-      let rawHashlock = await instance.toHashlock(hashlock.lock, hashlock.adjustment)
-      assert.equal(rawHashlock, packHashlock(hashlock))
-      let restored = unpackHashlock(rawHashlock)
-      assert.equal(restored.lock, hashlock.lock)
-      assert.equal(hashlock.adjustment.toString(), restored.adjustment.toString())
-
-      let restoredArray = decodeHashlocks(rawHashlock)
-      assert.equal(restoredArray.length, 1)
-      assert.equal(restoredArray[0].lock, hashlock.lock)
-      assert.equal(restoredArray[0].adjustment.toString(), hashlock.adjustment.toString())
+      let rawHashlock = await instance.toHashlock(channelId, hashlock.preimage, hashlock.adjustment)
+      assert.equal(rawHashlock, await packHashlock(channelId, hashlock))
     })
   })
 })
