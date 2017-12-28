@@ -563,6 +563,14 @@ contract('BBroker', accounts => {
     })
   })
 
+  describe('settleFast', () => {
+    specify('end settling period')
+    specify('set merkleRoot')
+    specify('not if settled')
+    specify('not if not signed by sender')
+    specify('not if not signed by receiver')
+  })
+
   describe('isSignedPayment', () => {
     specify('ok', async () => {
       let channelId = await openChannel(instance)
