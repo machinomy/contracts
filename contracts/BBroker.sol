@@ -92,10 +92,17 @@ contract BBroker is Destructible {
         DidUpdate(channelId, merkleRoot);
     }
 
-    function withdraw(bytes32 channelId, bytes proof, bytes32 preimage, int256 amount) public {
+    function canWithdraw(bytes32 channelId, bytes proof, bytes32 preimage, int256 amount) public view returns(bool) {
         var channel = channels[channelId];
         var hashlock = toHashlock(channelId, preimage, amount);
-        require(checkProof(proof, channel.merkleRoot, hashlock));
+        var isProof = checkProof(proof, channel.merkleRoot, hashlock);
+        return isSettled(channelId) && isProof;
+    }
+
+    function withdraw(bytes32 channelId, bytes proof, bytes32 preimage, int256 amount) public {
+        require(canWithdraw(channelId, proof, preimage, amount));
+
+        var channel = channels[channelId];
 
         if (amount >= 0) {
             var payment = uint256(amount);
