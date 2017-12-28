@@ -1,4 +1,4 @@
-import Web3 = require('web3');
+import * as Web3 from 'web3'
 import * as truffle from 'truffle-contract'
 import {TransactionResult} from 'truffle-contract'
 import BigNumber from 'bignumber.js'

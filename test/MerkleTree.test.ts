@@ -4,7 +4,7 @@ import * as chai from 'chai'
 
 const assert = chai.assert
 
-describe('MerkleTree', function() {
+describe('MerkleTree', () => {
   let elements = [1, 2, 3].map(e => utils.sha3(e))
   let tree = new MerkleTree(elements)
   let element = elements[0]
