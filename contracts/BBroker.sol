@@ -59,25 +59,26 @@ contract BBroker is Destructible {
         return isOpen(channelId) && isParty;
     }
 
-    function startSettlingFingerprint(bytes32 channelId) public view returns(bytes32) {
-        return keccak256("startSettling", address(this), chainId, channelId);
-    }
-
-    function canInvokeStartSettling(bytes32 channelId, bytes signature) public view returns(bool) {
-        var fingerprint = startSettlingFingerprint(channelId);
-        var digest = signatureDigest(fingerprint);
-        var origin = ECRecovery.recover(digest, signature);
-
-        return canStartSettling(channelId, origin);
-    }
-
-    function startSettling(bytes32 channelId, bytes signature) public {
-        require(canInvokeStartSettling(channelId, signature));
+    function startSettling(bytes32 channelId) public {
+        require(canStartSettling(channelId, msg.sender));
 
         var channel = channels[channelId];
         channel.settlingUntil = block.number + channel.settlingPeriod;
 
         DidStartSettling(channelId, channel.sender, channel.receiver);
+    }
+
+    function canUpdate(bytes32 channelId, uint32 nonce, address origin) public view returns(bool) {
+        var channel = channels[channelId];
+        bool isParty = (channel.sender == origin) || (channel.receiver == origin);
+        bool isHigherNonce = nonce > channel.nonce;
+        return !isSettled(channelId) && isParty && isHigherNonce;
+    }
+
+    function update(bytes32 channelId, uint32 nonce, bytes32 merkleRoot) public view returns(bool) {
+        require(canUpdate(channelId, nonce, msg.sender));
+
+        var channel = channels[channelId];
     }
 
 //    function canStartSettling(bytes32 channelId, bytes32 merkleRoot, bytes senderSig, bytes receiverSig) public view returns(bool) {
@@ -160,12 +161,18 @@ contract BBroker is Destructible {
         return channel.sender != 0;
     }
 
-    function isSettling(bytes32 channelId) public view returns(bool) {
+    function isOpen(bytes32 channelId) public view returns(bool) {
         var channel = channels[channelId];
-        return channel.settlingUntil != 0;
+        return channel.sender != 0 && channel.settlingUntil == 0;
     }
 
-    function isOpen(bytes32 channelId) public view returns(bool) {
-        return isPresent(channelId) && !isSettling(channelId);
+    function isSettling(bytes32 channelId) public view returns(bool) {
+        var channel = channels[channelId];
+        return block.number < channel.settlingUntil;
+    }
+
+    function isSettled(bytes32 channelId) public view returns(bool) {
+        var channel = channels[channelId];
+        return 0 < channel.settlingUntil && channel.settlingUntil <= block.number;
     }
 }

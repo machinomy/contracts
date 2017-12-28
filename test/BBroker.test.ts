@@ -81,9 +81,7 @@ contract('BBroker', accounts => {
   }
 
   async function startSettling (instance: BBroker.Contract, channelId: string, origin: string) {
-    let fingerprint = await instance.startSettlingFingerprint(channelId)
-    let signature = await sign(origin, fingerprint)
-    return instance.startSettling(channelId, signature)
+    return instance.startSettling(channelId, {from: origin})
   }
 
   async function readChannel (instance: BBroker.Contract, channelId: string): Promise<PaymentChannel> {
@@ -193,7 +191,7 @@ contract('BBroker', accounts => {
     })
 
     specify('not if settling', async () => {
-      let channelId = await openChannel(instance)
+      let channelId = await openChannel(instance, 10)
       await startSettling(instance, channelId, sender)
       assert.isTrue(await instance.isSettling(channelId))
       assert.isFalse(await instance.canStartSettling(channelId, sender))
@@ -235,6 +233,46 @@ contract('BBroker', accounts => {
       let channel = await readChannel(instance, channelId)
       assert.equal(channel.settlingUntil.toNumber(), settlingPeriod + blockNumber)
     })
+  })
+
+  describe('canUpdate', () => {
+    specify('ok', async () => {
+      let channelId = await openChannel(instance, 10)
+      assert.isFalse(await instance.isSettled(channelId))
+
+      await startSettling(instance, channelId, sender)
+      assert.isTrue(await instance.isSettling(channelId))
+      assert.isFalse(await instance.isOpen(channelId))
+      assert.isFalse(await instance.isSettled(channelId))
+
+      let nonce = (await readChannel(instance, channelId)).nonce
+      assert.isTrue(await instance.canUpdate(channelId, nonce.plus(1), sender))
+      assert.isTrue(await instance.canUpdate(channelId, nonce.plus(1), receiver))
+    })
+    specify('not if alien', async () => {
+      let channelId = await openChannel(instance, 10)
+      let nonce = (await readChannel(instance, channelId)).nonce
+      assert.isFalse(await instance.canUpdate(channelId, nonce.plus(1), alien))
+    })
+    specify('not if lower or equal nonce', async () => {
+      let channelId = await openChannel(instance, 10)
+      let nonce = (await readChannel(instance, channelId)).nonce
+      assert.isFalse(await instance.canUpdate(channelId, nonce, sender))
+      assert.isFalse(await instance.canUpdate(channelId, nonce, receiver))
+    })
+    specify('not if settled', async () => {
+      let channelId = await openChannel(instance)
+      await startSettling(instance, channelId, sender)
+      let nonce = (await readChannel(instance, channelId)).nonce
+      assert.isTrue(await instance.isSettled(channelId))
+      assert.isFalse(await instance.canUpdate(channelId, nonce.plus(1), sender))
+      assert.isFalse(await instance.canUpdate(channelId, nonce.plus(1), receiver))
+    })
+  })
+
+  describe('update', () => {
+    specify('emit DidUpdate event')
+    specify('set merkleRoot')
   })
 
   // describe('withdraw', () => {
@@ -369,7 +407,7 @@ contract('BBroker', accounts => {
     // })
 
     specify('if channel.settlingUntil', async () => {
-      let channelId = await openChannel(instance)
+      let channelId = await openChannel(instance, 10)
       await startSettling(instance, channelId, sender)
       let channel = await readChannel(instance, channelId)
       assert.notEqual(channel.settlingUntil.toNumber(), 0)
@@ -388,23 +426,12 @@ contract('BBroker', accounts => {
       assert.isTrue(await instance.isOpen(channelId))
     })
 
-    // specify('not if settling', async () => {
-    //   let channelId = await openChannel(instance)
-    //   let [proof, root] = await merkle(channelId, channelValue)
-    //   let senderSig = await signPayment(sender, channelId, root)
-    //   let receiverSig = await signPayment(receiver, channelId, root)
-    //   await instance.startSettling(channelId, root, senderSig, receiverSig)
-    //   assert.isTrue(await instance.isPresent(channelId))
-    //   assert.isTrue(await instance.isSettling(channelId))
-    //   assert.isFalse(await instance.isOpen(channelId))
-    // })
-
     specify('not if settling', async () => {
-      let channelId = await openChannel(instance)
+      let channelId = await openChannel(instance, 10)
       await startSettling(instance, channelId, sender)
-      assert.isTrue(await instance.isPresent(channelId))
       assert.isTrue(await instance.isSettling(channelId))
       assert.isFalse(await instance.isOpen(channelId))
+      assert.isFalse(await instance.isSettled(channelId))
     })
 
     specify('not if missing channel', async () => {
@@ -459,9 +486,11 @@ contract('BBroker', accounts => {
     })
   })
 
-  specify('open -> settle -> update ---> withdraw', async () => {
+  specify('open -> startSettling -> update ---> withdraw', async () => {
     // 1. open
     let channelId = await openChannel(instance)
-    // 2. settle
+    // 2. startSettling
+    await startSettling(instance, channelId, receiver)
+    // 3. update
   })
 })
