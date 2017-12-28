@@ -389,6 +389,49 @@ contract('BBroker', accounts => {
         assert.isTrue(tx.logs.some(BBroker.isDidWithdrawEvent))
       })
 
+      specify('not if open channel', async () => {
+        let channelId = await openChannel(instance)
+        let channel = await readChannel(instance, channelId)
+        let nonce = channel.nonce.plus(1)
+        let [proof, root] = await merkle(channelId, amount)
+        let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
+        let senderSig = await sign(sender, fingerprint)
+        let receiverSig = await sign(receiver, fingerprint)
+
+        await instance.update(channelId, nonce, root, senderSig, receiverSig)
+        assert.isTrue(await instance.isOpen(channelId))
+        return assert.isRejected(instance.withdraw(channelId, proof, preimage, amount, {from: alien}))
+      })
+
+      specify('not if settling channel', async () => {
+        let channelId = await openChannel(instance, 10)
+        let channel = await readChannel(instance, channelId)
+        let nonce = channel.nonce.plus(1)
+        let [proof, root] = await merkle(channelId, amount)
+        let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
+        let senderSig = await sign(sender, fingerprint)
+        let receiverSig = await sign(receiver, fingerprint)
+
+        await instance.update(channelId, nonce, root, senderSig, receiverSig)
+        await instance.startSettling(channelId)
+        assert.isTrue(await instance.isSettling(channelId))
+        return assert.isRejected(instance.withdraw(channelId, proof, preimage, amount, {from: alien}))
+      })
+
+      specify('not if alien', async () => {
+        let channelId = await openChannel(instance)
+        let channel = await readChannel(instance, channelId)
+        let nonce = channel.nonce.plus(1)
+        let [proof, root] = await merkle(channelId, amount)
+        let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
+        let senderSig = await sign(sender, fingerprint)
+        let receiverSig = await sign(receiver, fingerprint)
+
+        await instance.update(channelId, nonce, root, senderSig, receiverSig)
+        await instance.startSettling(channelId)
+        return assert.isRejected(instance.withdraw(channelId, proof, preimage, amount, {from: alien}))
+      })
+
       context('if last withdrawal', () => {
         specify('delete channel', async () => {
           let channelId = await openChannel(instance)
