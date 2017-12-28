@@ -12,6 +12,7 @@
     "test": "test"
   },
   "scripts": {
+    "travis": "yarn run build && yarn run lint && yarn run test",
     "support:build": "tsc --project support/tsconfig.json",
     "support:wrap": "yarn support:build && node support/wrap.js 'build/contracts/@(Broker|TokenBroker|ABroker|BBroker|ERC20|ECRecovery).json' --output build/wrappers",
     "truffle:test": "run-with-testrpc --networkId 999 --mnemonic 'testtest' --unlock 0 'truffle test ./test/*.test.js'",
