@@ -27,7 +27,7 @@ contract BBroker is Destructible {
     uint256 id;
 
     event DidOpen(bytes32 indexed channelId);
-    event DidStartSettling(bytes32 indexed channelId);
+    event DidStartSettling(bytes32 indexed channelId, address indexed sender, address indexed receiver);
     event DidWithdraw(bytes32 indexed channelId, int256 amount);
     event DidClose(bytes32 indexed channelId);
 
@@ -59,12 +59,25 @@ contract BBroker is Destructible {
         return isOpen(channelId) && isParty;
     }
 
-    function startSettling(bytes32 channelId, bytes32 merkleRoot, bytes senderSig, bytes receiverSig) public {
-        require(canStartSettling(channelId, msg.sender));
+    function startSettlingFingerprint(bytes32 channelId) public view returns(bytes32) {
+        return keccak256("startSettling", address(this), chainId, channelId);
+    }
+
+    function canInvokeStartSettling(bytes32 channelId, bytes signature) public view returns(bool) {
+        var fingerprint = startSettlingFingerprint(channelId);
+        var digest = signatureDigest(fingerprint);
+        var origin = ECRecovery.recover(digest, signature);
+
+        return canStartSettling(channelId, origin);
+    }
+
+    function startSettling(bytes32 channelId, bytes signature) public {
+        require(canInvokeStartSettling(channelId, signature));
+
         var channel = channels[channelId];
         channel.settlingUntil = block.number + channel.settlingPeriod;
 
-        DidStartSettling(channelId);
+        DidStartSettling(channelId, channel.sender, channel.receiver);
     }
 
 //    function canStartSettling(bytes32 channelId, bytes32 merkleRoot, bytes senderSig, bytes receiverSig) public view returns(bool) {
@@ -109,11 +122,11 @@ contract BBroker is Destructible {
         return isSignedBySender && isSignedByReceiver;
     }
 
-    function paymentDigest(bytes32 channelId, bytes32 merkleRoot) public constant returns(bytes32) {
+    function paymentDigest(bytes32 channelId, bytes32 merkleRoot) public view returns(bytes32) {
         return keccak256(address(this), chainId, channelId, merkleRoot);
     }
 
-    function signatureDigest(bytes32 digest) public constant returns(bytes32) {
+    function signatureDigest(bytes32 digest) public pure returns(bytes32) {
         bytes memory prefix = "\x19Ethereum Signed Message:\n32";
         return keccak256(prefix, digest);
     }

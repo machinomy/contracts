@@ -80,6 +80,12 @@ contract('BBroker', accounts => {
     }
   }
 
+  async function startSettling (instance: BBroker.Contract, channelId: string, origin: string) {
+    let fingerprint = await instance.startSettlingFingerprint(channelId)
+    let signature = await sign(origin, fingerprint)
+    return instance.startSettling(channelId, signature)
+  }
+
   async function readChannel (instance: BBroker.Contract, channelId: string): Promise<PaymentChannel> {
     let [ sender, receiver, value, root, settlingPeriod, settlingUntil, nonce ]= await instance.channels(channelId)
     return { sender, receiver, value, root, settlingPeriod, settlingUntil, nonce }
@@ -102,7 +108,19 @@ contract('BBroker', accounts => {
     return '0x' + proof.map(e => e.toString('hex')).join('')
   }
 
-  async function sign (origin: string, channelId: string, merkleRoot: string): Promise<string> {
+  async function sign (origin: string, digest: string): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      web3.eth.sign(origin, digest, (error, signature) => {
+        if (error) {
+          reject(error)
+        } else {
+          resolve(signature)
+        }
+      })
+    })
+  }
+
+  async function signPayment (origin: string, channelId: string, merkleRoot: string): Promise<string> {
     let digest = await paymentDigest(instance.address, channelId, merkleRoot)
     return new Promise<string>((resolve, reject) => {
       web3.eth.sign(origin, digest, (error, signature) => {
@@ -176,10 +194,7 @@ contract('BBroker', accounts => {
 
     specify('not if settling', async () => {
       let channelId = await openChannel(instance)
-      let merkleRoot = '0xcafebabe'
-      let senderSig = await sign(sender, channelId, merkleRoot)
-      let receiverSig = await sign(receiver, channelId, merkleRoot)
-      await instance.startSettling(channelId, merkleRoot, senderSig, receiverSig)
+      await startSettling(instance, channelId, sender)
       assert.isTrue(await instance.isSettling(channelId))
       assert.isFalse(await instance.canStartSettling(channelId, sender))
       assert.isFalse(await instance.canStartSettling(channelId, receiver))
@@ -189,18 +204,15 @@ contract('BBroker', accounts => {
   describe('startSettling', () => {
     specify('emit DidStartSettling event', async () => {
       let channelId = await openChannel(instance)
-      let merkleRoot = '0xcafebabe'
-      let senderSig = await sign(sender, channelId, merkleRoot)
-      let receiverSig = await sign(receiver, channelId, merkleRoot)
-      let tx = await instance.startSettling(channelId, merkleRoot, senderSig, receiverSig)
+      let tx = await startSettling(instance, channelId, sender)
       assert.isTrue(tx.logs.some(BBroker.isDidStartSettlingEvent))
     })
 
     // specify('set channel.root', async () => {
     //   let channelId = await openChannel(instance)
     //   let merkleRoot = util.bufferToHex(abi.rawEncode(['bytes32'], ['0xcafebabe']))
-    //   let senderSig = await sign(sender, channelId, merkleRoot)
-    //   let receiverSig = await sign(receiver, channelId, merkleRoot)
+    //   let senderSig = await signPayment(sender, channelId, merkleRoot)
+    //   let receiverSig = await signPayment(receiver, channelId, merkleRoot)
     //   await instance.startSettling(channelId, merkleRoot, senderSig, receiverSig)
     //   let channel = await readChannel(instance, channelId)
     //   assert.equal(channel.root, merkleRoot)
@@ -209,10 +221,7 @@ contract('BBroker', accounts => {
     specify('set channel.settlingUntil', async () => {
       let settlingPeriod = 2
       let channelId = await openChannel(instance, settlingPeriod)
-      let merkleRoot = '0xcafebabe'
-      let senderSig = await sign(sender, channelId, merkleRoot)
-      let receiverSig = await sign(receiver, channelId, merkleRoot)
-      let tx = await instance.startSettling(channelId, merkleRoot, senderSig, receiverSig)
+      let tx = await await startSettling(instance, channelId, sender)
       let blockNumber = tx.receipt.blockNumber
       let channel = await readChannel(instance, channelId)
       assert.equal(channel.settlingUntil.toNumber(), settlingPeriod + blockNumber)
@@ -221,10 +230,7 @@ contract('BBroker', accounts => {
     specify('affect isSettling', async () => {
       let settlingPeriod = 2
       let channelId = await openChannel(instance, settlingPeriod)
-      let merkleRoot = '0xcafebabe'
-      let senderSig = await sign(sender, channelId, merkleRoot)
-      let receiverSig = await sign(receiver, channelId, merkleRoot)
-      let tx = await instance.startSettling(channelId, merkleRoot, senderSig, receiverSig)
+      let tx = await startSettling(instance, channelId, sender)
       let blockNumber = tx.receipt.blockNumber
       let channel = await readChannel(instance, channelId)
       assert.equal(channel.settlingUntil.toNumber(), settlingPeriod + blockNumber)
@@ -238,8 +244,8 @@ contract('BBroker', accounts => {
   //     specify('decrease channel value', async () => {
   //       let channelId = await openChannel(instance)
   //       let [proof, root] = await merkle(channelId, amount)
-  //       let senderSig = await sign(sender, channelId, root)
-  //       let receiverSig = await sign(receiver, channelId, root)
+  //       let senderSig = await signPayment(sender, channelId, root)
+  //       let receiverSig = await signPayment(receiver, channelId, root)
   //
   //       let valueBefore = (await readChannel(instance, channelId)).value
   //       await instance.startSettling(channelId, root, senderSig, receiverSig)
@@ -252,8 +258,8 @@ contract('BBroker', accounts => {
   //     specify('decrease contract balance', async () => {
   //       let channelId = await openChannel(instance)
   //       let [proof, root] = await merkle(channelId, amount)
-  //       let senderSig = await sign(sender, channelId, root)
-  //       let receiverSig = await sign(receiver, channelId, root)
+  //       let senderSig = await signPayment(sender, channelId, root)
+  //       let receiverSig = await signPayment(receiver, channelId, root)
   //
   //       let valueBefore = web3.eth.getBalance(instance.address)
   //       await instance.startSettling(channelId, root, senderSig, receiverSig)
@@ -265,8 +271,8 @@ contract('BBroker', accounts => {
   //     specify('increase receiver balance', async () => {
   //       let channelId = await openChannel(instance)
   //       let [proof, root] = await merkle(channelId, amount)
-  //       let senderSig = await sign(sender, channelId, root)
-  //       let receiverSig = await sign(receiver, channelId, root)
+  //       let senderSig = await signPayment(sender, channelId, root)
+  //       let receiverSig = await signPayment(receiver, channelId, root)
   //
   //       let valueBefore = web3.eth.getBalance(receiver)
   //       await instance.startSettling(channelId, root, senderSig, receiverSig)
@@ -278,8 +284,8 @@ contract('BBroker', accounts => {
   //     specify('emit DidWithdraw event', async () => {
   //       let channelId = await openChannel(instance)
   //       let [proof, root] = await merkle(channelId, amount)
-  //       let senderSig = await sign(sender, channelId, root)
-  //       let receiverSig = await sign(receiver, channelId, root)
+  //       let senderSig = await signPayment(sender, channelId, root)
+  //       let receiverSig = await signPayment(receiver, channelId, root)
   //
   //       await instance.startSettling(channelId, root, senderSig, receiverSig)
   //       let tx = await instance.withdraw(channelId, proof, preimage, amount)
@@ -290,8 +296,8 @@ contract('BBroker', accounts => {
   //       specify('delete channel', async () => {
   //         let channelId = await openChannel(instance)
   //         let [proof, root] = await merkle(channelId, channelValue)
-  //         let senderSig = await sign(sender, channelId, root)
-  //         let receiverSig = await sign(receiver, channelId, root)
+  //         let senderSig = await signPayment(sender, channelId, root)
+  //         let receiverSig = await signPayment(receiver, channelId, root)
   //
   //         await instance.startSettling(channelId, root, senderSig, receiverSig)
   //         await instance.withdraw(channelId, proof, preimage, channelValue)
@@ -303,8 +309,8 @@ contract('BBroker', accounts => {
   //       specify('emit DidClose event', async () => {
   //         let channelId = await openChannel(instance)
   //         let [proof, root] = await merkle(channelId, channelValue)
-  //         let senderSig = await sign(sender, channelId, root)
-  //         let receiverSig = await sign(receiver, channelId, root)
+  //         let senderSig = await signPayment(sender, channelId, root)
+  //         let receiverSig = await signPayment(receiver, channelId, root)
   //
   //         await instance.startSettling(channelId, root, senderSig, receiverSig)
   //         let tx = await instance.withdraw(channelId, proof, preimage, channelValue)
@@ -317,8 +323,8 @@ contract('BBroker', accounts => {
   //     specify('fail', async () => {
   //       let channelId = await openChannel(instance)
   //       let [proof, root] = await merkle(channelId, amount)
-  //       let senderSig = await sign(sender, channelId, root)
-  //       let receiverSig = await sign(receiver, channelId, root)
+  //       let senderSig = await signPayment(sender, channelId, root)
+  //       let receiverSig = await signPayment(receiver, channelId, root)
   //
   //       await instance.startSettling(channelId, root, senderSig, receiverSig)
   //       return assert.isRejected(instance.withdraw(channelId, proof, preimage, channelValue))
@@ -351,12 +357,20 @@ contract('BBroker', accounts => {
   })
 
   describe('isSettling', () => {
+    // specify('if channel.settlingUntil', async () => {
+    //   let channelId = await openChannel(instance)
+    //   let [proof, root] = await merkle(channelId, channelValue)
+    //   let senderSig = await sign(sender, channelId, root)
+    //   let receiverSig = await sign(receiver, channelId, root)
+    //   await instance.startSettling(channelId, root, senderSig, receiverSig)
+    //   let channel = await readChannel(instance, channelId)
+    //   assert.notEqual(channel.settlingUntil.toNumber(), 0)
+    //   assert.isTrue(await instance.isSettling(channelId))
+    // })
+
     specify('if channel.settlingUntil', async () => {
       let channelId = await openChannel(instance)
-      let [proof, root] = await merkle(channelId, channelValue)
-      let senderSig = await sign(sender, channelId, root)
-      let receiverSig = await sign(receiver, channelId, root)
-      await instance.startSettling(channelId, root, senderSig, receiverSig)
+      await startSettling(instance, channelId, sender)
       let channel = await readChannel(instance, channelId)
       assert.notEqual(channel.settlingUntil.toNumber(), 0)
       assert.isTrue(await instance.isSettling(channelId))
@@ -374,12 +388,20 @@ contract('BBroker', accounts => {
       assert.isTrue(await instance.isOpen(channelId))
     })
 
+    // specify('not if settling', async () => {
+    //   let channelId = await openChannel(instance)
+    //   let [proof, root] = await merkle(channelId, channelValue)
+    //   let senderSig = await signPayment(sender, channelId, root)
+    //   let receiverSig = await signPayment(receiver, channelId, root)
+    //   await instance.startSettling(channelId, root, senderSig, receiverSig)
+    //   assert.isTrue(await instance.isPresent(channelId))
+    //   assert.isTrue(await instance.isSettling(channelId))
+    //   assert.isFalse(await instance.isOpen(channelId))
+    // })
+
     specify('not if settling', async () => {
       let channelId = await openChannel(instance)
-      let [proof, root] = await merkle(channelId, channelValue)
-      let senderSig = await sign(sender, channelId, root)
-      let receiverSig = await sign(receiver, channelId, root)
-      await instance.startSettling(channelId, root, senderSig, receiverSig)
+      await startSettling(instance, channelId, sender)
       assert.isTrue(await instance.isPresent(channelId))
       assert.isTrue(await instance.isSettling(channelId))
       assert.isFalse(await instance.isOpen(channelId))
@@ -415,15 +437,15 @@ contract('BBroker', accounts => {
     specify('ok', async () => {
       let channelId = await openChannel(instance)
       let merkleRoot = '0xcafebabe'
-      let senderSig = await sign(sender, channelId, merkleRoot)
-      let receiverSig = await sign(receiver, channelId, merkleRoot)
+      let senderSig = await signPayment(sender, channelId, merkleRoot)
+      let receiverSig = await signPayment(receiver, channelId, merkleRoot)
       assert.isTrue(await instance.isSignedPayment(channelId, merkleRoot, senderSig, receiverSig))
     })
 
     specify('not if not signed by sender', async () => {
       let channelId = await openChannel(instance)
       let merkleRoot = '0xcafebabe'
-      let receiverSig = await sign(receiver, channelId, merkleRoot)
+      let receiverSig = await signPayment(receiver, channelId, merkleRoot)
 
       assert.isFalse(await instance.isSignedPayment(channelId, merkleRoot, '0xdeadbeaf', receiverSig))
     })
@@ -431,7 +453,7 @@ contract('BBroker', accounts => {
     specify('not if not signed by receiver', async () => {
       let channelId = await openChannel(instance)
       let merkleRoot = '0xcafebabe'
-      let senderSig = await sign(sender, channelId, merkleRoot)
+      let senderSig = await signPayment(sender, channelId, merkleRoot)
 
       assert.isFalse(await instance.isSignedPayment(channelId, merkleRoot, senderSig, '0xdeadbeaf'))
     })
