@@ -2,14 +2,14 @@
   "name": "@machinomy/contracts",
   "version": "3.1.0",
   "description": "Machinomy contracts managed by Truffle",
-  "main": "src/index.js",
-  "types": "src/index.d.ts",
-  "files": [
-    "build/",
-    "src/"
-  ],
-  "directories": {
-    "test": "test"
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/machinomy/machinomy-contracts#readme",
+  "bugs": {
+    "url": "https://github.com/machinomy/machinomy-contracts/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/machinomy/machinomy-contracts.git"
   },
   "scripts": {
     "travis": "yarn run build && yarn run lint && yarn run test",
@@ -27,20 +27,15 @@
     "lint:solidity": "solium -d contracts/",
     "lint": "yarn lint:solidity && yarn lint:typescript"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/machinomy/machinomy-contracts.git"
-  },
-  "author": "Sergey Ukustov <sergey.ukustov@machinomy.com",
-  "contributors": [
-    "Alexandr Burtovoy <alexandr.burtovoy@machinomy.com>",
-    "David Wolever <david@wolever.net>"
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "files": [
+    "build/",
+    "src/"
   ],
-  "license": "Apache-2.0",
-  "bugs": {
-    "url": "https://github.com/machinomy/machinomy-contracts/issues"
+  "engines": {
+    "node": ">=9.0.0"
   },
-  "homepage": "https://github.com/machinomy/machinomy-contracts#readme",
   "devDependencies": {
     "@machinomy/types-truffle-contract": "https://github.com/machinomy/types-truffle-contract",
     "@types/bignumber.js": "^4.0.3",
