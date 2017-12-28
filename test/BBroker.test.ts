@@ -6,8 +6,8 @@ import * as asPromised from 'chai-as-promised'
 import * as abi from 'ethereumjs-abi'
 import * as util from 'ethereumjs-util'
 
-import {BBroker} from '../src/index'
-import {getNetwork, randomUnlock} from './support'
+import { BBroker } from '../src/index'
+import { getNetwork, randomUnlock } from './support'
 import ECRecovery from '../build/wrappers/ECRecovery'
 import MerkleTree from '../src/MerkleTree'
 

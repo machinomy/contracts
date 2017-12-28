@@ -6,8 +6,8 @@ import * as asPromised from 'chai-as-promised'
 import * as abi from 'ethereumjs-abi'
 import * as util from 'ethereumjs-util'
 
-import {ABroker} from '../src/index'
-import {Gasoline, getBlock, getNetwork, transactionPrice} from './support'
+import { ABroker } from '../src/index'
+import { Gasoline, getBlock, getNetwork, transactionPrice } from './support'
 import ECRecovery from '../build/wrappers/ECRecovery'
 
 chai.use(asPromised)

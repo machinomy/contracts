@@ -1,4 +1,4 @@
-import {Buffer} from 'buffer'
+import { Buffer } from 'buffer'
 import * as util from 'ethereumjs-util'
 
 function isHash (buffer: Buffer): boolean {

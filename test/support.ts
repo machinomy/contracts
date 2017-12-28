@@ -1,6 +1,6 @@
 import * as Web3 from 'web3'
 import * as truffle from 'truffle-contract'
-import {TransactionResult} from 'truffle-contract'
+import { TransactionResult } from 'truffle-contract'
 import BigNumber from 'bignumber.js'
 
 export const GAS_PRICE = new BigNumber(100000000000)
