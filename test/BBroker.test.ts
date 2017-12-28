@@ -89,6 +89,13 @@ contract('BBroker', accounts => {
     return { sender, receiver, value, root, settlingPeriod, settlingUntil, nonce }
   }
 
+  async function updateChannel (channelId: string, nonce: number, merkleRoot: string) {
+    let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
+    let senderSig = await sign(sender, fingerprint)
+    let receiverSig = await sign(receiver, fingerprint)
+    return await instance.update(channelId, nonce, merkleRoot, senderSig, receiverSig)
+  }
+
   async function packHashlock (channelId: string, hashlock: Hashlock): Promise<string> {
     let hashlockBuffer = abi.soliditySHA3(
       ['uint32', 'bytes32', 'bytes32', 'int256'],
@@ -236,6 +243,7 @@ contract('BBroker', accounts => {
   })
 
   describe('canUpdate', () => {
+    let merkleRoot = '0xdeadbeaf'
     specify('ok', async () => {
       let channelId = await openChannel(instance, 10)
       assert.isFalse(await instance.isSettled(channelId))
@@ -245,34 +253,79 @@ contract('BBroker', accounts => {
       assert.isFalse(await instance.isOpen(channelId))
       assert.isFalse(await instance.isSettled(channelId))
 
-      let nonce = (await readChannel(instance, channelId)).nonce
-      assert.isTrue(await instance.canUpdate(channelId, nonce.plus(1), sender))
-      assert.isTrue(await instance.canUpdate(channelId, nonce.plus(1), receiver))
+      let nonce = (await readChannel(instance, channelId)).nonce.plus(1)
+
+      let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
+      let senderSig = await sign(sender, fingerprint)
+      let receiverSig = await sign(receiver, fingerprint)
+      assert.isTrue(await instance.canUpdate(channelId, nonce, merkleRoot, senderSig, receiverSig))
     })
     specify('not if alien', async () => {
       let channelId = await openChannel(instance, 10)
-      let nonce = (await readChannel(instance, channelId)).nonce
-      assert.isFalse(await instance.canUpdate(channelId, nonce.plus(1), alien))
+      let nonce = (await readChannel(instance, channelId)).nonce.plus(1)
+      let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
+      let alienSig = await sign(alien, fingerprint)
+      let senderSig = await sign(sender, fingerprint)
+      let receiverSig = await sign(receiver, fingerprint)
+      assert.isFalse(await instance.canUpdate(channelId, nonce, merkleRoot, alienSig, receiverSig))
+      assert.isFalse(await instance.canUpdate(channelId, nonce, merkleRoot, senderSig, alienSig))
     })
     specify('not if lower or equal nonce', async () => {
       let channelId = await openChannel(instance, 10)
       let nonce = (await readChannel(instance, channelId)).nonce
-      assert.isFalse(await instance.canUpdate(channelId, nonce, sender))
-      assert.isFalse(await instance.canUpdate(channelId, nonce, receiver))
+      let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
+      let senderSig = await sign(sender, fingerprint)
+      let receiverSig = await sign(receiver, fingerprint)
+      assert.isFalse(await instance.canUpdate(channelId, nonce, merkleRoot, senderSig, receiverSig))
     })
     specify('not if settled', async () => {
       let channelId = await openChannel(instance)
       await startSettling(instance, channelId, sender)
-      let nonce = (await readChannel(instance, channelId)).nonce
-      assert.isTrue(await instance.isSettled(channelId))
-      assert.isFalse(await instance.canUpdate(channelId, nonce.plus(1), sender))
-      assert.isFalse(await instance.canUpdate(channelId, nonce.plus(1), receiver))
+      let nonce = (await readChannel(instance, channelId)).nonce.plus(1)
+      let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
+      let senderSig = await sign(sender, fingerprint)
+      let receiverSig = await sign(receiver, fingerprint)
+      assert.isFalse(await instance.canUpdate(channelId, nonce, merkleRoot, senderSig, receiverSig))
     })
   })
 
   describe('update', () => {
-    specify('emit DidUpdate event')
-    specify('set merkleRoot')
+    specify('emit DidUpdate event', async () => {
+      let channelId = await openChannel(instance, 10)
+      let nonce = (await readChannel(instance, channelId)).nonce.plus(1)
+      let merkleRoot = util.bufferToHex(abi.rawEncode(['bytes32'], ['0xcafebabe']))
+
+      let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
+      let senderSig = await sign(sender, fingerprint)
+      let receiverSig = await sign(receiver, fingerprint)
+
+      let tx = await instance.update(channelId, nonce, merkleRoot, senderSig, receiverSig)
+      assert.isTrue(tx.logs.some(BBroker.isDidUpdateEvent))
+    })
+    specify('set merkleRoot', async () => {
+      let channelId = await openChannel(instance, 10)
+      let nonce = (await readChannel(instance, channelId)).nonce.plus(1)
+      let merkleRoot = util.bufferToHex(abi.rawEncode(['bytes32'], ['0xcafebabe']))
+      let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
+      let senderSig = await sign(sender, fingerprint)
+      let receiverSig = await sign(receiver, fingerprint)
+
+      await instance.update(channelId, nonce, merkleRoot, senderSig, receiverSig)
+      let newMerkleRoot = (await readChannel(instance, channelId)).root
+      assert.equal(newMerkleRoot, merkleRoot)
+    })
+    specify('set nonce', async () => {
+      let channelId = await openChannel(instance, 10)
+      let nonce = (await readChannel(instance, channelId)).nonce.plus(1)
+      let merkleRoot = util.bufferToHex(abi.rawEncode(['bytes32'], ['0xcafebabe']))
+      let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
+      let senderSig = await sign(sender, fingerprint)
+      let receiverSig = await sign(receiver, fingerprint)
+
+      await instance.update(channelId, nonce, merkleRoot, senderSig, receiverSig)
+      let newNonce = (await readChannel(instance, channelId)).nonce
+      assert.equal(newNonce.toString(), nonce.toString())
+    })
   })
 
   // describe('withdraw', () => {

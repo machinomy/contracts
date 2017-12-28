@@ -27,6 +27,7 @@ contract BBroker is Destructible {
     uint256 id;
 
     event DidOpen(bytes32 indexed channelId);
+    event DidUpdate(bytes32 indexed channelId, bytes32 merkleRoot);
     event DidStartSettling(bytes32 indexed channelId, address indexed sender, address indexed receiver);
     event DidWithdraw(bytes32 indexed channelId, int256 amount);
     event DidClose(bytes32 indexed channelId);
@@ -68,17 +69,27 @@ contract BBroker is Destructible {
         DidStartSettling(channelId, channel.sender, channel.receiver);
     }
 
-    function canUpdate(bytes32 channelId, uint32 nonce, address origin) public view returns(bool) {
-        var channel = channels[channelId];
-        bool isParty = (channel.sender == origin) || (channel.receiver == origin);
-        bool isHigherNonce = nonce > channel.nonce;
-        return !isSettled(channelId) && isParty && isHigherNonce;
+    function updateFingerprint(bytes32 channelId, uint32 nonce, bytes32 merkleRoot) public view returns(bytes32) {
+        return keccak256("u", address(this), channelId, nonce, merkleRoot);
     }
 
-    function update(bytes32 channelId, uint32 nonce, bytes32 merkleRoot) public view returns(bool) {
-        require(canUpdate(channelId, nonce, msg.sender));
+    function canUpdate(bytes32 channelId, uint32 nonce, bytes32 merkleRoot, bytes senderSig, bytes receiverSig) public view returns(bool) {
+        var channel = channels[channelId];
+        var digest = signatureDigest(updateFingerprint(channelId, nonce, merkleRoot));
+        bool isSignedBySender = channel.sender == ECRecovery.recover(digest, senderSig);
+        bool isSignedByReceiver = channel.receiver == ECRecovery.recover(digest, receiverSig);
+        bool isHigherNonce = nonce > channel.nonce;
+        return !isSettled(channelId) && isHigherNonce && isSignedBySender && isSignedByReceiver;
+    }
+
+    function update(bytes32 channelId, uint32 nonce, bytes32 merkleRoot, bytes senderSig, bytes receiverSig) public {
+        require(canUpdate(channelId, nonce, merkleRoot, senderSig, receiverSig));
 
         var channel = channels[channelId];
+        channel.merkleRoot = merkleRoot;
+        channel.nonce = nonce;
+
+        DidUpdate(channelId, merkleRoot);
     }
 
 //    function canStartSettling(bytes32 channelId, bytes32 merkleRoot, bytes senderSig, bytes receiverSig) public view returns(bool) {
