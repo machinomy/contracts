@@ -563,12 +563,91 @@ contract('BBroker', accounts => {
     })
   })
 
-  describe('settleFast', () => {
-    specify('end settling period')
-    specify('set merkleRoot')
-    specify('not if settled')
-    specify('not if not signed by sender')
-    specify('not if not signed by receiver')
+  describe('settle', () => {
+    specify('end settling period', async () => {
+      let channelId = await openChannel(instance)
+      let channel = await readChannel(instance, channelId)
+      let nonce = channel.nonce.plus(1)
+      let [proof, root] = await merkle(channelId, channelValue)
+      let fingerprint = await instance.settleFingerprint(channelId, nonce, root)
+      let senderSig = await sign(sender, fingerprint)
+      let receiverSig = await sign(receiver, fingerprint)
+      let tx = await instance.settle(channelId, nonce, root, senderSig, receiverSig)
+      let blockNumber = tx.receipt.blockNumber
+      let channelAfter = await readChannel(instance, channelId)
+      assert.equal(channelAfter.settlingUntil.toNumber(), blockNumber)
+    })
+
+    specify('set merkleRoot', async () => {
+      let channelId = await openChannel(instance)
+      let channel = await readChannel(instance, channelId)
+      let nonce = channel.nonce.plus(1)
+      let [proof, root] = await merkle(channelId, channelValue)
+      let fingerprint = await instance.settleFingerprint(channelId, nonce, root)
+      let senderSig = await sign(sender, fingerprint)
+      let receiverSig = await sign(receiver, fingerprint)
+      await instance.settle(channelId, nonce, root, senderSig, receiverSig)
+      let channelAfter = await readChannel(instance, channelId)
+      assert.equal(channelAfter.root, root)
+    })
+
+    specify('not if settled', async () => {
+      let channelId = await openChannel(instance)
+      let channel = await readChannel(instance, channelId)
+      let nonce = channel.nonce.plus(1)
+      let [proof, root] = await merkle(channelId, channelValue)
+      let fingerprint = await instance.settleFingerprint(channelId, nonce, root)
+      let senderSig = await sign(sender, fingerprint)
+      let receiverSig = await sign(receiver, fingerprint)
+      await instance.settle(channelId, nonce, root, senderSig, receiverSig)
+      let channelAfter = await readChannel(instance, channelId)
+      assert.equal(channelAfter.root, root)
+    })
+
+    async function updateChannel(channelId: string, value: BigNumber) {
+      let channel = await readChannel(instance, channelId)
+      let nonce = channel.nonce.plus(10)
+      let [proof, root] = await merkle(channelId, channelValue)
+      let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
+      let senderSig = await sign(sender, fingerprint)
+      let receiverSig = await sign(receiver, fingerprint)
+      return await instance.update(channelId, nonce, root, senderSig, receiverSig)
+    }
+
+    specify('not if lower nonce', async () => {
+      let channelId = await openChannel(instance)
+      await updateChannel(channelId, channelValue)
+
+      let channel = await readChannel(instance, channelId)
+      let nonce = channel.nonce.minus(1)
+      let [proof, root] = await merkle(channelId, channelValue)
+      let fingerprint = await instance.settleFingerprint(channelId, nonce, root)
+      let senderSig = await sign(sender, fingerprint)
+      let receiverSig = await sign(receiver, fingerprint)
+      return assert.isRejected(instance.settle(channelId, nonce, root, senderSig, receiverSig))
+    })
+    specify('not if not signed by sender', async () => {
+      let channelId = await openChannel(instance)
+      await updateChannel(channelId, channelValue)
+
+      let channel = await readChannel(instance, channelId)
+      let nonce = channel.nonce.minus(1)
+      let [proof, root] = await merkle(channelId, channelValue)
+      let fingerprint = await instance.settleFingerprint(channelId, nonce, root)
+      let receiverSig = await sign(receiver, fingerprint)
+      return assert.isRejected(instance.settle(channelId, nonce, root, '0xdeadbeaf', receiverSig))
+    })
+    specify('not if not signed by receiver', async () => {
+      let channelId = await openChannel(instance)
+      await updateChannel(channelId, channelValue)
+
+      let channel = await readChannel(instance, channelId)
+      let nonce = channel.nonce.minus(1)
+      let [proof, root] = await merkle(channelId, channelValue)
+      let fingerprint = await instance.settleFingerprint(channelId, nonce, root)
+      let senderSig = await sign(sender, fingerprint)
+      return assert.isRejected(instance.settle(channelId, nonce, root, senderSig, '0xdeadbeaf'))
+    })
   })
 
   describe('isSignedPayment', () => {

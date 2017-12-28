@@ -87,7 +87,7 @@
       "absolutePath": "zeppelin-solidity/contracts/lifecycle/Destructible.sol",
       "exportedSymbols": {
         "Destructible": [
-          795
+          955
         ]
       }
     },
@@ -101,39 +101,39 @@
             ".18"
           ]
         },
-        "id": 765,
+        "id": 925,
         "name": "PragmaDirective",
         "src": "0:24:2"
       },
       {
         "attributes": {
-          "SourceUnit": 950,
+          "SourceUnit": 1110,
           "absolutePath": "zeppelin-solidity/contracts/ownership/Ownable.sol",
           "file": "../ownership/Ownable.sol",
-          "scope": 796,
+          "scope": 956,
           "symbolAliases": [
             null
           ],
           "unitAlias": ""
         },
-        "id": 766,
+        "id": 926,
         "name": "ImportDirective",
         "src": "27:34:2"
       },
       {
         "attributes": {
           "contractDependencies": [
-            949
+            1109
           ],
           "contractKind": "contract",
           "documentation": "@title Destructible\n@dev Base contract that can be destroyed by owner. All funds in contract will be sent to the owner.",
           "fullyImplemented": true,
           "linearizedBaseContracts": [
-            795,
-            949
+            955,
+            1109
           ],
           "name": "Destructible",
-          "scope": 796
+          "scope": 956
         },
         "children": [
           {
@@ -147,15 +147,15 @@
                 "attributes": {
                   "contractScope": null,
                   "name": "Ownable",
-                  "referencedDeclaration": 949,
+                  "referencedDeclaration": 1109,
                   "type": "contract Ownable"
                 },
-                "id": 767,
+                "id": 927,
                 "name": "UserDefinedTypeName",
                 "src": "223:7:2"
               }
             ],
-            "id": 768,
+            "id": 928,
             "name": "InheritanceSpecifier",
             "src": "223:7:2"
           },
@@ -169,7 +169,7 @@
               ],
               "name": "Destructible",
               "payable": true,
-              "scope": 795,
+              "scope": 955,
               "stateMutability": "payable",
               "superFunction": null,
               "visibility": "public"
@@ -182,7 +182,7 @@
                   ]
                 },
                 "children": [],
-                "id": 769,
+                "id": 929,
                 "name": "ParameterList",
                 "src": "257:2:2"
               },
@@ -193,7 +193,7 @@
                   ]
                 },
                 "children": [],
-                "id": 770,
+                "id": 930,
                 "name": "ParameterList",
                 "src": "275:0:2"
               },
@@ -204,12 +204,12 @@
                   ]
                 },
                 "children": [],
-                "id": 771,
+                "id": 931,
                 "name": "Block",
                 "src": "275:3:2"
               }
             ],
-            "id": 772,
+            "id": 932,
             "name": "FunctionDefinition",
             "src": "236:42:2"
           },
@@ -220,7 +220,7 @@
               "isConstructor": false,
               "name": "destroy",
               "payable": false,
-              "scope": 795,
+              "scope": 955,
               "stateMutability": "nonpayable",
               "superFunction": null,
               "visibility": "public"
@@ -233,7 +233,7 @@
                   ]
                 },
                 "children": [],
-                "id": 773,
+                "id": 933,
                 "name": "ParameterList",
                 "src": "392:2:2"
               },
@@ -244,7 +244,7 @@
                   ]
                 },
                 "children": [],
-                "id": 776,
+                "id": 936,
                 "name": "ParameterList",
                 "src": "412:0:2"
               },
@@ -261,16 +261,16 @@
                       "overloadedDeclarations": [
                         null
                       ],
-                      "referencedDeclaration": 923,
+                      "referencedDeclaration": 1083,
                       "type": "modifier ()",
                       "value": "onlyOwner"
                     },
-                    "id": 774,
+                    "id": 934,
                     "name": "Identifier",
                     "src": "395:9:2"
                   }
                 ],
-                "id": 775,
+                "id": 935,
                 "name": "ModifierInvocation",
                 "src": "395:9:2"
               },
@@ -304,11 +304,11 @@
                               "overloadedDeclarations": [
                                 null
                               ],
-                              "referencedDeclaration": 967,
+                              "referencedDeclaration": 1127,
                               "type": "function (address)",
                               "value": "selfdestruct"
                             },
-                            "id": 777,
+                            "id": 937,
                             "name": "Identifier",
                             "src": "418:12:2"
                           },
@@ -318,31 +318,31 @@
                               "overloadedDeclarations": [
                                 null
                               ],
-                              "referencedDeclaration": 897,
+                              "referencedDeclaration": 1057,
                               "type": "address",
                               "value": "owner"
                             },
-                            "id": 778,
+                            "id": 938,
                             "name": "Identifier",
                             "src": "431:5:2"
                           }
                         ],
-                        "id": 779,
+                        "id": 939,
                         "name": "FunctionCall",
                         "src": "418:19:2"
                       }
                     ],
-                    "id": 780,
+                    "id": 940,
                     "name": "ExpressionStatement",
                     "src": "418:19:2"
                   }
                 ],
-                "id": 781,
+                "id": 941,
                 "name": "Block",
                 "src": "412:30:2"
               }
             ],
-            "id": 782,
+            "id": 942,
             "name": "FunctionDefinition",
             "src": "376:66:2"
           },
@@ -353,7 +353,7 @@
               "isConstructor": false,
               "name": "destroyAndSend",
               "payable": false,
-              "scope": 795,
+              "scope": 955,
               "stateMutability": "nonpayable",
               "superFunction": null,
               "visibility": "public"
@@ -365,7 +365,7 @@
                     "attributes": {
                       "constant": false,
                       "name": "_recipient",
-                      "scope": 794,
+                      "scope": 954,
                       "stateVariable": false,
                       "storageLocation": "default",
                       "type": "address",
@@ -378,17 +378,17 @@
                           "name": "address",
                           "type": "address"
                         },
-                        "id": 783,
+                        "id": 943,
                         "name": "ElementaryTypeName",
                         "src": "470:7:2"
                       }
                     ],
-                    "id": 784,
+                    "id": 944,
                     "name": "VariableDeclaration",
                     "src": "470:18:2"
                   }
                 ],
-                "id": 785,
+                "id": 945,
                 "name": "ParameterList",
                 "src": "469:20:2"
               },
@@ -399,7 +399,7 @@
                   ]
                 },
                 "children": [],
-                "id": 788,
+                "id": 948,
                 "name": "ParameterList",
                 "src": "507:0:2"
               },
@@ -416,16 +416,16 @@
                       "overloadedDeclarations": [
                         null
                       ],
-                      "referencedDeclaration": 923,
+                      "referencedDeclaration": 1083,
                       "type": "modifier ()",
                       "value": "onlyOwner"
                     },
-                    "id": 786,
+                    "id": 946,
                     "name": "Identifier",
                     "src": "490:9:2"
                   }
                 ],
-                "id": 787,
+                "id": 947,
                 "name": "ModifierInvocation",
                 "src": "490:9:2"
               },
@@ -459,11 +459,11 @@
                               "overloadedDeclarations": [
                                 null
                               ],
-                              "referencedDeclaration": 967,
+                              "referencedDeclaration": 1127,
                               "type": "function (address)",
                               "value": "selfdestruct"
                             },
-                            "id": 789,
+                            "id": 949,
                             "name": "Identifier",
                             "src": "513:12:2"
                           },
@@ -473,41 +473,41 @@
                               "overloadedDeclarations": [
                                 null
                               ],
-                              "referencedDeclaration": 784,
+                              "referencedDeclaration": 944,
                               "type": "address",
                               "value": "_recipient"
                             },
-                            "id": 790,
+                            "id": 950,
                             "name": "Identifier",
                             "src": "526:10:2"
                           }
                         ],
-                        "id": 791,
+                        "id": 951,
                         "name": "FunctionCall",
                         "src": "513:24:2"
                       }
                     ],
-                    "id": 792,
+                    "id": 952,
                     "name": "ExpressionStatement",
                     "src": "513:24:2"
                   }
                 ],
-                "id": 793,
+                "id": 953,
                 "name": "Block",
                 "src": "507:35:2"
               }
             ],
-            "id": 794,
+            "id": 954,
             "name": "FunctionDefinition",
             "src": "446:96:2"
           }
         ],
-        "id": 795,
+        "id": 955,
         "name": "ContractDefinition",
         "src": "198:346:2"
       }
     ],
-    "id": 796,
+    "id": 956,
     "name": "SourceUnit",
     "src": "0:545:2"
   },
@@ -517,5 +517,5 @@
   },
   "networks": {},
   "schemaVersion": "1.0.1",
-  "updatedAt": "2017-12-28T07:44:02.724Z"
+  "updatedAt": "2017-12-28T10:44:03.093Z"
 }

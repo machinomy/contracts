@@ -28,7 +28,8 @@ contract BBroker is Destructible {
 
     event DidOpen(bytes32 indexed channelId);
     event DidUpdate(bytes32 indexed channelId, bytes32 merkleRoot);
-    event DidStartSettling(bytes32 indexed channelId, address indexed sender, address indexed receiver);
+    event DidStartSettling(bytes32 indexed channelId);
+    event DidSettle(bytes32 indexed channelId);
     event DidWithdraw(bytes32 indexed channelId, address destination, int256 amount);
     event DidClose(bytes32 indexed channelId);
 
@@ -66,7 +67,31 @@ contract BBroker is Destructible {
         var channel = channels[channelId];
         channel.settlingUntil = block.number + channel.settlingPeriod;
 
-        DidStartSettling(channelId, channel.sender, channel.receiver);
+        DidStartSettling(channelId);
+    }
+
+    function settleFingerprint(bytes32 channelId, uint32  nonce, bytes32 merkleRoot) public view returns(bytes32) {
+        return keccak256("s", address(this), channelId, nonce, merkleRoot);
+    }
+
+    function canSettle(bytes32 channelId, uint32 nonce, bytes32 merkleRoot, bytes senderSig, bytes receiverSig) public view returns(bool) {
+        var channel = channels[channelId];
+        var digest = signatureDigest(settleFingerprint(channelId, nonce, merkleRoot));
+        bool isSignedBySender = channel.sender == ECRecovery.recover(digest, senderSig);
+        bool isSignedByReceiver = channel.receiver == ECRecovery.recover(digest, receiverSig);
+        bool isHigherNonce = nonce > channel.nonce;
+        return !isSettled(channelId) && isHigherNonce && isSignedBySender && isSignedByReceiver;
+    }
+
+    function settle(bytes32 channelId, uint32 nonce, bytes32 merkleRoot, bytes senderSig, bytes receiverSig) public {
+        require(canSettle(channelId, nonce, merkleRoot, senderSig, receiverSig));
+
+        var channel = channels[channelId];
+        channel.merkleRoot = merkleRoot;
+        channel.nonce = nonce;
+        channel.settlingUntil = block.number;
+
+        DidSettle(channelId);
     }
 
     function updateFingerprint(bytes32 channelId, uint32 nonce, bytes32 merkleRoot) public view returns(bytes32) {
