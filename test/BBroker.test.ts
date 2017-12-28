@@ -213,16 +213,6 @@ contract('BBroker', accounts => {
       assert.isTrue(tx.logs.some(BBroker.isDidStartSettlingEvent))
     })
 
-    // specify('set channel.root', async () => {
-    //   let channelId = await openChannel(instance)
-    //   let merkleRoot = util.bufferToHex(abi.rawEncode(['bytes32'], ['0xcafebabe']))
-    //   let senderSig = await signPayment(sender, channelId, merkleRoot)
-    //   let receiverSig = await signPayment(receiver, channelId, merkleRoot)
-    //   await instance.startSettling(channelId, merkleRoot, senderSig, receiverSig)
-    //   let channel = await readChannel(instance, channelId)
-    //   assert.equal(channel.root, merkleRoot)
-    // })
-
     specify('set channel.settlingUntil', async () => {
       let settlingPeriod = 2
       let channelId = await openChannel(instance, settlingPeriod)
@@ -448,17 +438,6 @@ contract('BBroker', accounts => {
   })
 
   describe('isSettling', () => {
-    // specify('if channel.settlingUntil', async () => {
-    //   let channelId = await openChannel(instance)
-    //   let [proof, root] = await merkle(channelId, channelValue)
-    //   let senderSig = await sign(sender, channelId, root)
-    //   let receiverSig = await sign(receiver, channelId, root)
-    //   await instance.startSettling(channelId, root, senderSig, receiverSig)
-    //   let channel = await readChannel(instance, channelId)
-    //   assert.notEqual(channel.settlingUntil.toNumber(), 0)
-    //   assert.isTrue(await instance.isSettling(channelId))
-    // })
-
     specify('if channel.settlingUntil', async () => {
       let channelId = await openChannel(instance, 10)
       await startSettling(instance, channelId, sender)
