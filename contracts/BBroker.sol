@@ -29,7 +29,7 @@ contract BBroker is Destructible {
     event DidOpen(bytes32 indexed channelId);
     event DidUpdate(bytes32 indexed channelId, bytes32 merkleRoot);
     event DidStartSettling(bytes32 indexed channelId, address indexed sender, address indexed receiver);
-    event DidWithdraw(bytes32 indexed channelId, int256 amount);
+    event DidWithdraw(bytes32 indexed channelId, address destination, int256 amount);
     event DidClose(bytes32 indexed channelId);
 
     function BBroker(uint32 _chainId) public {
@@ -108,9 +108,8 @@ contract BBroker is Destructible {
             var payment = uint256(amount);
             channel.value -= payment;
             require(channel.receiver.send(payment));
+            DidWithdraw(channelId, channel.receiver, amount);
         }
-
-        DidWithdraw(channelId, amount);
 
         if (channel.value == 0) {
             delete channels[channelId];

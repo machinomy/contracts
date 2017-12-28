@@ -340,68 +340,88 @@ contract('BBroker', accounts => {
         assert.equal(valueAfter.minus(valueBefore).toString(), amount.mul(-1).toString())
       })
 
-      // specify('decrease contract balance', async () => {
-      //   let channelId = await openChannel(instance)
-      //   let [proof, root] = await merkle(channelId, amount)
-      //   let senderSig = await signPayment(sender, channelId, root)
-      //   let receiverSig = await signPayment(receiver, channelId, root)
-      //
-      //   let valueBefore = web3.eth.getBalance(instance.address)
-      //   await instance.startSettling(channelId, root, senderSig, receiverSig)
-      //   await instance.withdraw(channelId, proof, preimage, amount)
-      //   let valueAfter = web3.eth.getBalance(instance.address)
-      //   assert.equal(valueAfter.minus(valueBefore).toString(), amount.mul(-1).toString())
-      // })
-      //
-      // specify('increase receiver balance', async () => {
-      //   let channelId = await openChannel(instance)
-      //   let [proof, root] = await merkle(channelId, amount)
-      //   let senderSig = await signPayment(sender, channelId, root)
-      //   let receiverSig = await signPayment(receiver, channelId, root)
-      //
-      //   let valueBefore = web3.eth.getBalance(receiver)
-      //   await instance.startSettling(channelId, root, senderSig, receiverSig)
-      //   await instance.withdraw(channelId, proof, preimage, amount)
-      //   let valueAfter = web3.eth.getBalance(receiver)
-      //   assert.equal(valueAfter.minus(valueBefore).toString(), amount.toString())
-      // })
-      //
-      // specify('emit DidWithdraw event', async () => {
-      //   let channelId = await openChannel(instance)
-      //   let [proof, root] = await merkle(channelId, amount)
-      //   let senderSig = await signPayment(sender, channelId, root)
-      //   let receiverSig = await signPayment(receiver, channelId, root)
-      //
-      //   await instance.startSettling(channelId, root, senderSig, receiverSig)
-      //   let tx = await instance.withdraw(channelId, proof, preimage, amount)
-      //   assert.isTrue(tx.logs.some(BBroker.isDidWithdrawEvent))
-      // })
-      //
-      // context('if last withdrawal', () => {
-      //   specify('delete channel', async () => {
-      //     let channelId = await openChannel(instance)
-      //     let [proof, root] = await merkle(channelId, channelValue)
-      //     let senderSig = await signPayment(sender, channelId, root)
-      //     let receiverSig = await signPayment(receiver, channelId, root)
-      //
-      //     await instance.startSettling(channelId, root, senderSig, receiverSig)
-      //     await instance.withdraw(channelId, proof, preimage, channelValue)
-      //     let valueAfter = (await readChannel(instance, channelId)).value
-      //     assert.equal(valueAfter.toString(), '0')
-      //     assert.isFalse(await instance.isPresent(channelId))
-      //   })
-      //
-      //   specify('emit DidClose event', async () => {
-      //     let channelId = await openChannel(instance)
-      //     let [proof, root] = await merkle(channelId, channelValue)
-      //     let senderSig = await signPayment(sender, channelId, root)
-      //     let receiverSig = await signPayment(receiver, channelId, root)
-      //
-      //     await instance.startSettling(channelId, root, senderSig, receiverSig)
-      //     let tx = await instance.withdraw(channelId, proof, preimage, channelValue)
-      //     assert.isTrue(tx.logs.some(BBroker.isDidCloseEvent))
-      //   })
-      // })
+      specify('decrease contract balance', async () => {
+        let channelId = await openChannel(instance)
+        let channel = await readChannel(instance, channelId)
+        let nonce = channel.nonce.plus(1)
+        let [proof, root] = await merkle(channelId, amount)
+        let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
+        let senderSig = await sign(sender, fingerprint)
+        let receiverSig = await sign(receiver, fingerprint)
+
+        let valueBefore = web3.eth.getBalance(instance.address)
+        await instance.update(channelId, nonce, root, senderSig, receiverSig)
+        await instance.startSettling(channelId)
+        await instance.withdraw(channelId, proof, preimage, amount)
+        let valueAfter = web3.eth.getBalance(instance.address)
+        assert.equal(valueAfter.minus(valueBefore).toString(), amount.mul(-1).toString())
+      })
+
+      specify('increase receiver balance', async () => {
+        let channelId = await openChannel(instance)
+        let channel = await readChannel(instance, channelId)
+        let nonce = channel.nonce.plus(1)
+        let [proof, root] = await merkle(channelId, amount)
+        let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
+        let senderSig = await sign(sender, fingerprint)
+        let receiverSig = await sign(receiver, fingerprint)
+
+        let valueBefore = web3.eth.getBalance(receiver)
+        await instance.update(channelId, nonce, root, senderSig, receiverSig)
+        await instance.startSettling(channelId)
+        await instance.withdraw(channelId, proof, preimage, amount)
+        let valueAfter = web3.eth.getBalance(receiver)
+        assert.equal(valueAfter.minus(valueBefore).toString(), amount.toString())
+      })
+
+      specify('emit DidWithdraw event', async () => {
+        let channelId = await openChannel(instance)
+        let channel = await readChannel(instance, channelId)
+        let nonce = channel.nonce.plus(1)
+        let [proof, root] = await merkle(channelId, amount)
+        let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
+        let senderSig = await sign(sender, fingerprint)
+        let receiverSig = await sign(receiver, fingerprint)
+
+        await instance.update(channelId, nonce, root, senderSig, receiverSig)
+        await instance.startSettling(channelId)
+        let tx = await instance.withdraw(channelId, proof, preimage, amount)
+        assert.isTrue(tx.logs.some(BBroker.isDidWithdrawEvent))
+      })
+
+      context('if last withdrawal', () => {
+        specify('delete channel', async () => {
+          let channelId = await openChannel(instance)
+          let channel = await readChannel(instance, channelId)
+          let nonce = channel.nonce.plus(1)
+          let [proof, root] = await merkle(channelId, channelValue)
+          let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
+          let senderSig = await sign(sender, fingerprint)
+          let receiverSig = await sign(receiver, fingerprint)
+
+          await instance.update(channelId, nonce, root, senderSig, receiverSig)
+          await instance.startSettling(channelId)
+          await instance.withdraw(channelId, proof, preimage, channelValue)
+          let valueAfter = (await readChannel(instance, channelId)).value
+          assert.equal(valueAfter.toString(), '0')
+          assert.isFalse(await instance.isPresent(channelId))
+        })
+
+        specify('emit DidClose event', async () => {
+          let channelId = await openChannel(instance)
+          let channel = await readChannel(instance, channelId)
+          let nonce = channel.nonce.plus(1)
+          let [proof, root] = await merkle(channelId, channelValue)
+          let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
+          let senderSig = await sign(sender, fingerprint)
+          let receiverSig = await sign(receiver, fingerprint)
+
+          await instance.update(channelId, nonce, root, senderSig, receiverSig)
+          await instance.startSettling(channelId)
+          let tx = await instance.withdraw(channelId, proof, preimage, channelValue)
+          assert.isTrue(tx.logs.some(BBroker.isDidCloseEvent))
+        })
+      })
     })
 
     context('if incorrect proof', () => {
