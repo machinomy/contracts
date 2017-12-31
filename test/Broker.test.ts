@@ -1,7 +1,7 @@
 import * as Web3 from 'web3'
 import * as chai from 'chai'
 import * as asPromised from 'chai-as-promised'
-import { Broker } from '../src/index'
+import {BBroker, Broker, TokenBroker} from '../src/index'
 import BigNumber from 'bignumber.js'
 import { getNetwork } from './support'
 import { sign, paymentDigest } from '../src/index'
@@ -17,6 +17,11 @@ contract('Broker', accounts => {
   const receiver = accounts[1]
   const contract = Broker.contract(web3.currentProvider, { from: sender, gas: 200000 })
 
+  async function chainId(): Promise<number> {
+    let instance = await contractDeployed()
+    return instance.chainId().then(n => n.toNumber())
+  }
+
   const createChannel = async (instance: Broker.Contract) => {
     let options = { value: web3.toWei(1, 'ether') }
     const log = await instance.createChannel(receiver, new BigNumber(100), new BigNumber(1), options)
@@ -24,7 +29,7 @@ contract('Broker', accounts => {
   }
 
   let _instance: Broker.Contract | null = null
-  const contractDeployed = async () => {
+  async function contractDeployed (): Promise<Broker.Contract> {
     if (_instance) {
       return _instance
     } else {
@@ -63,8 +68,7 @@ contract('Broker', accounts => {
 
     const channelId = event.args.channelId
     const value = new BigNumber(1)
-    const chainId = await getNetwork(web3)
-    const digest = paymentDigest(channelId, value, instance.address, chainId)
+    const digest = paymentDigest(channelId, value, instance.address, await chainId())
     const signature = await sign(web3, sender, digest)
     const v = signature.v
     const r = '0x' + signature.r.toString('hex')
@@ -99,8 +103,7 @@ contract('Broker', accounts => {
     const channelId = didCreateEvent.args.channelId
     const value = new BigNumber(1)
 
-    const chainId = await getNetwork(web3)
-    const digest = paymentDigest(channelId, value, instance.address, chainId)
+    const digest = paymentDigest(channelId, value, instance.address, await chainId())
     const signature = await sign(web3, sender, digest)
     const v = signature.v
     const r = '0x' + signature.r.toString('hex')

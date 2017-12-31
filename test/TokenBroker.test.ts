@@ -2,7 +2,7 @@ import Web3 = require('web3')
 import chai = require('chai')
 import { TokenBroker } from '../src/index'
 import BigNumber from 'bignumber.js'
-import { ERC20Example, getNetwork } from './support'
+import { ERC20Example } from './support'
 import { sign, paymentDigest } from '../src/index'
 
 const expect = chai.expect
@@ -14,15 +14,19 @@ interface Setup {
   token: ERC20Example.Contract
 }
 
-contract('TokenBroker', async accounts => {
+contract('TokenBroker', accounts => {
   const owner = accounts[0]
   const sender = accounts[1]
   const receiver = accounts[2]
   const startChannelValue = new BigNumber(2)
-  const contract = TokenBroker.contract(web3.currentProvider, { from: sender, gas: 700000 })
+  const contract = artifacts.require<TokenBroker.Contract>('TokenBroker.sol')
 
   const createChannel = async function (broker: TokenBroker.Contract, token: ERC20Example.Contract) {
-    return await broker.createChannel(token.address, receiver, new BigNumber(100), new BigNumber(1), startChannelValue)
+    return await broker.createChannel(token.address, receiver, new BigNumber(100), new BigNumber(1), startChannelValue, {from: sender})
+  }
+
+  async function chainId(broker: TokenBroker.Contract): Promise<number> {
+    return broker.chainId().then(n => n.toNumber())
   }
 
   const setup = async function (): Promise<Setup> {
@@ -68,8 +72,7 @@ contract('TokenBroker', async accounts => {
     const res = await createChannel(broker, token)
     const channelId = res.logs[0].args.channelId
 
-    const chainId = await getNetwork(web3)
-    const digest = paymentDigest(channelId, startChannelValue, broker.address, chainId)
+    const digest = paymentDigest(channelId, startChannelValue, broker.address, await chainId(broker))
     const signature = await sign(web3, sender, digest)
     const v = signature.v
     const r = '0x' + signature.r.toString('hex')
@@ -110,8 +113,7 @@ contract('TokenBroker', async accounts => {
 
     await broker.startSettle(channelId, startChannelValue, {from: sender})
 
-    const chainId = await getNetwork(web3)
-    const digest = paymentDigest(channelId, startChannelValue, broker.address, chainId)
+    const digest = paymentDigest(channelId, startChannelValue, broker.address, await chainId(broker))
     const signature = await sign(web3, sender, digest)
     const v = signature.v
     const r = '0x' + signature.r.toString('hex')

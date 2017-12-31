@@ -25,6 +25,10 @@ interface PaymentChannel {
   settlingUntil: BigNumber
 }
 
+async function chainId(broker: ABroker.Contract): Promise<number> {
+  return broker.chainId().then(n => n.toNumber())
+}
+
 contract('ABroker', accounts => {
   let sender = accounts[0]
   let receiver = accounts[1]
@@ -60,10 +64,9 @@ contract('ABroker', accounts => {
   }
 
   async function paymentDigest (address: string, channelId: string, payment: BigNumber): Promise<string> {
-    let chainId = await getNetwork(web3)
     let hash = abi.soliditySHA3(
       ['address', 'uint32', 'bytes32', 'uint256'],
-      [address, chainId, channelId, payment.toString()]
+      [address, await chainId(instance), channelId, payment.toString()]
     )
     return util.bufferToHex(hash)
   }

@@ -6,7 +6,7 @@ import * as asPromised from 'chai-as-promised'
 import * as abi from 'ethereumjs-abi'
 import * as util from 'ethereumjs-util'
 
-import { BBroker } from '../src/index'
+import {BBroker, TokenBroker} from '../src/index'
 import { getNetwork, randomUnlock } from './support'
 import ECRecovery from '../build/wrappers/ECRecovery'
 import MerkleTree from '../src/MerkleTree'
@@ -30,15 +30,6 @@ interface PaymentChannel {
 interface Hashlock {
   preimage: string
   adjustment: BigNumber
-}
-
-async function paymentDigest (address: string, channelId: string, merkleRoot: string): Promise<string> {
-  let chainId = await getNetwork(web3)
-  let hash = abi.soliditySHA3(
-    ['address', 'uint32', 'bytes32', 'bytes32'],
-    [address, chainId, channelId, merkleRoot]
-  )
-  return util.bufferToHex(hash)
 }
 
 async function signatureDigest (address: string, digest: string): Promise<string> {
@@ -88,6 +79,19 @@ contract('BBroker', accounts => {
     }
   }
 
+  async function chainId(): Promise<number> {
+    return instance.chainId().then(n => n.toNumber())
+  }
+
+  async function paymentDigest (address: string, channelId: string, merkleRoot: string): Promise<string> {
+    let hash = abi.soliditySHA3(
+      ['address', 'uint32', 'bytes32', 'bytes32'],
+      [address, await chainId(), channelId, merkleRoot]
+    )
+    return util.bufferToHex(hash)
+  }
+
+
   async function startSettling (instance: BBroker.Contract, channelId: string, origin: string) {
     return instance.startSettling(channelId, {from: origin})
   }
@@ -100,7 +104,7 @@ contract('BBroker', accounts => {
   async function packHashlock (channelId: string, hashlock: Hashlock): Promise<string> {
     let hashlockBuffer = abi.soliditySHA3(
       ['uint32', 'bytes32', 'bytes32', 'int256'],
-      [(await getNetwork(web3)), channelId, hashlock.preimage, hashlock.adjustment.toString()]
+      [(await chainId()), channelId, hashlock.preimage, hashlock.adjustment.toString()]
     )
     return util.bufferToHex(hashlockBuffer)
   }

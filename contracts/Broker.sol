@@ -21,7 +21,7 @@ contract Broker is Destructible {
     }
 
     mapping(bytes32 => PaymentChannel) channels;
-    uint32 chainId;
+    uint32 public chainId;
     uint32 id;
 
     event DidCreateChannel(bytes32 channelId, address indexed sender, address indexed receiver, uint256 value, uint settlementPeriod, uint until);

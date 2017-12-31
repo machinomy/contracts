@@ -19,7 +19,7 @@ contract TokenBroker is Destructible {
     }
 
     mapping(bytes32 => PaymentChannel) channels;
-    uint32 chainId;
+    uint32 public chainId;
     uint32 id;
 
     event DidCreateChannel(bytes32 channelId, address indexed sender, address indexed receiver, uint256 value, uint settlementPeriod, uint until);
@@ -68,9 +68,7 @@ contract TokenBroker is Destructible {
     }
 
     function claim(bytes32 channelId, uint256 payment, uint8 v, bytes32 r, bytes32 s) public {
-        if (!canClaim(channelId, payment, v, r, s)) {
-            return;
-        }
+        require(canClaim(channelId, payment, v, r, s));
 
         settle(channelId, payment);
     }
