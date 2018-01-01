@@ -17,7 +17,7 @@ let fileNames = glob.sync(pattern)
 if (fileNames.length) {
   fileNames.forEach(fileName => {
     let templatesDir = path.resolve(__dirname, 'templates')
-    let outputDir = path.resolve(__dirname, '..', 'build', 'wrappers')
+    let outputDir = path.resolve(__dirname, '..', '..', 'build', 'wrappers')
     let transformer = new ContractTemplate(templatesDir, outputDir)
     transformer.render(fileName)
   })

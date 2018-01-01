@@ -1,11 +1,8 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "es2017",
     "module": "commonjs",
-    "lib": [
-      "es2015.collection",
-      "es2015"
-    ],
+    "lib": [ "es2017" ],
     "typeRoots": [
       "../node_modules/@types"
     ]
@@ -13,6 +10,6 @@
   "include": [
     "../node_modules/**/*/index.d.ts",
     "../types/**/index.d.ts",
-    "./*.ts"
+    "./**/*.ts"
   ]
 }
