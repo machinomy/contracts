@@ -30,13 +30,17 @@ contract('Broker', accounts => {
     });
     async function deployed() {
         let ecrecovery = artifacts.require('zeppelin-solidity/contracts/ECRecovery.sol');
+        let merkleProof = artifacts.require('zeppelin-solidity/contracts/MerkleProof.sol');
         let contract = artifacts.require('Broker.sol');
         if (contract.isDeployed()) {
             return contract.deployed();
         }
         else {
             let networkId = await support_1.getNetwork(web3);
+            await ecrecovery.new();
+            await merkleProof.new();
             contract.link(ecrecovery);
+            contract.link(merkleProof);
             return contract.new(networkId, { from: sender, gas: 2800000 });
         }
     }

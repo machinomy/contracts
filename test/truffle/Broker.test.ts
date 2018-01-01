@@ -10,6 +10,7 @@ import { Broker } from '../../src/index'
 import { getNetwork, randomUnlock } from '../support'
 import ECRecovery from '../../build/wrappers/ECRecovery'
 import MerkleTree from '../../src/MerkleTree'
+import MerkleProof from '../../build/wrappers/MerkleProof'
 
 chai.use(asPromised)
 
@@ -57,12 +58,16 @@ contract('Broker', accounts => {
 
   async function deployed (): Promise<Broker.Contract> {
     let ecrecovery = artifacts.require<ECRecovery.Contract>('zeppelin-solidity/contracts/ECRecovery.sol')
+    let merkleProof = artifacts.require<MerkleProof.Contract>('zeppelin-solidity/contracts/MerkleProof.sol')
     let contract = artifacts.require<Broker.Contract>('Broker.sol')
     if (contract.isDeployed()) {
       return contract.deployed()
     } else {
       let networkId = await getNetwork(web3)
+      await ecrecovery.new()
+      await merkleProof.new()
       contract.link(ecrecovery)
+      contract.link(merkleProof)
       return contract.new(networkId, {from: sender, gas: 2800000})
     }
   }

@@ -12,7 +12,7 @@
     "url": "git+https://github.com/machinomy/machinomy-contracts.git"
   },
   "config": {
-    "wrapped_artifacts": "build/contracts/@(Broker|ECRecovery).json",
+    "wrapped_artifacts": "build/contracts/@(Broker|ECRecovery|MerkleProof).json",
     "wrappers_dir": "build/wrappers",
     "truffle_tests": "test/truffle/*.test.js"
   },

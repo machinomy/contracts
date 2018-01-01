@@ -3,6 +3,7 @@ pragma solidity ^0.4.18;
 import "zeppelin-solidity/contracts/lifecycle/Destructible.sol";
 import "zeppelin-solidity/contracts/math/SafeMath.sol";
 import "zeppelin-solidity/contracts/ECRecovery.sol";
+import "zeppelin-solidity/contracts/MerkleProof.sol";
 
 
 contract Broker is Destructible {
@@ -120,7 +121,7 @@ contract Broker is Destructible {
     function canWithdraw(bytes32 channelId, bytes proof, bytes32 preimage, int256 amount, address origin) public view returns(bool) {
         var channel = channels[channelId];
         var hashlock = toHashlock(channelId, preimage, amount);
-        var isProof = checkProof(proof, channel.merkleRoot, hashlock);
+        var isProof = MerkleProof.verifyProof(proof, channel.merkleRoot, hashlock);
         bool isParty = (channel.sender == origin) || (channel.receiver == origin);
         return isSettled(channelId) && isProof && isParty;
     }
@@ -165,23 +166,6 @@ contract Broker is Destructible {
 
     function toHashlock(bytes32 channelId, bytes32 preimage, int256 amount) public view returns (bytes32) {
         return keccak256(chainId, channelId, preimage, amount);
-    }
-
-    function checkProof(bytes proof, bytes32 merkleRoot, bytes32 hashlock) public pure returns (bool) {
-        bytes32 proofElement;
-        bytes32 cursor = hashlock;
-
-        for (uint256 i = 32; i <= proof.length; i += 32) {
-            assembly { proofElement := mload(add(proof, i)) }
-
-            if (cursor < proofElement) {
-                cursor = keccak256(cursor, proofElement);
-            } else {
-                cursor = keccak256(proofElement, cursor);
-            }
-        }
-
-        return cursor == merkleRoot;
     }
 
     /** Channel State **/
