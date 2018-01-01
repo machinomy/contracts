@@ -1,4 +1,4 @@
-import { MerkleTree } from '../src'
+import { MerkleTree } from '../../src/index'
 import * as utils from 'ethereumjs-util'
 import * as chai from 'chai'
 

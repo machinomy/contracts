@@ -14,7 +14,7 @@
   "config": {
     "wrapped_artifacts": "build/contracts/@(Broker|TokenBroker|ABroker|BBroker|ERC20|ECRecovery).json",
     "wrappers_dir": "build/wrappers",
-    "truffle_tests": "test/*.test.js"
+    "truffle_tests": "test/truffle/*.test.js"
   },
   "scripts": {
     "prepublish": "yarn travis",
@@ -58,7 +58,7 @@
     "run-with-testrpc": "^0.2.1",
     "solium": "^1.0.11",
     "truffle": "^4.0.4",
-    "ts-node": "^4.0.2",
+    "ts-node": "^4.1.0",
     "tslint": "^5.7.0",
     "tslint-config-standard": "^6.0.1",
     "types-bn": "^0.0.1",
