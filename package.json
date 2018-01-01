@@ -17,7 +17,7 @@
     "truffle_tests": "test/truffle/*.test.js"
   },
   "scripts": {
-    "prepublish": "yarn travis",
+    "prepublish": "",
     "travis": "yarn lint && yarn test",
     "lint": "yarn lint:solidity && yarn lint:typescript",
     "lint:solidity": "solium -d contracts/",
@@ -27,7 +27,8 @@
     "support:build": "tsc --project support/tsconfig.json",
     "truffle:test": "run-with-testrpc 'truffle test $npm_package_config_truffle_tests'",
     "truffle:compile": "truffle compile",
-    "test": "yarn build && yarn truffle:test"
+    "test": "yarn build && yarn truffle:test",
+    "doc:natspec": "ts-node support/natspec"
   },
   "main": "src/index.js",
   "types": "src/index.d.ts",
@@ -56,8 +57,14 @@
     "mocha": "^4.0.1",
     "mocha-typescript": "^1.1.12",
     "run-with-testrpc": "^0.2.1",
+    "solc": "^0.4.19",
     "solium": "^1.0.11",
     "truffle": "^4.0.4",
+    "truffle-artifactor": "^3.0.2",
+    "truffle-compile": "^3.0.4",
+    "truffle-config": "^1.0.4",
+    "truffle-contract-sources": "^0.0.1",
+    "truffle-resolver": "^4.0.1",
     "ts-node": "^4.1.0",
     "tslint": "^5.7.0",
     "tslint-config-standard": "^6.0.1",

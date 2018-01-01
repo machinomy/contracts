@@ -9,6 +9,7 @@ yarn-error.log
 !types/**/*.d.ts
 migrations/*.js
 build/wrappers/
+build/doc/
 helpers/*.js
 support/*.js
 coverage/
