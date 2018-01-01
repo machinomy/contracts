@@ -1,8 +1,6 @@
 import * as Web3 from 'web3'
 import * as truffle from 'truffle-contract'
-import { TransactionResult } from 'truffle-contract'
 import BigNumber from 'bignumber.js'
-import {TokenBroker} from "../src/index";
 
 export const GAS_PRICE = new BigNumber(100000000000)
 
@@ -71,35 +69,6 @@ export class Gasoline {
       gasUsed: tx.receipt.gasUsed
     }
     this.items.push(item)
-  }
-}
-
-export namespace ERC20Example {
-  const Json = require('../build/contracts/ERC20example.json')
-
-  export interface Contract {
-    address: string
-
-    mint (receiver: string, amount: BigNumber|number, opts?: Web3.TxData): Promise<TransactionResult>
-    balanceOf (address: string): Promise<BigNumber>
-    approve (address: string, startChannelValue: BigNumber, opts?: Web3.TxData): Promise<TransactionResult>
-    deposit (address: string, channelId: string, startChannelValue: BigNumber, opts?: Web3.TxData): Promise<TransactionResult>
-  }
-
-  export const deploy = function (provider?: Web3.Provider, opts?: Web3.TxData): Promise<Contract> {
-    let instance = truffle<Contract>(Json)
-    if (provider) {
-      instance.setProvider(provider)
-    }
-    return instance.new(opts)
-  }
-
-  export function deployed (provider?: Web3.Provider): Promise<Contract> {
-    let instance = truffle<Contract>(Json)
-    if (provider) {
-      instance.setProvider(provider)
-    }
-    return instance.deployed()
   }
 }
 

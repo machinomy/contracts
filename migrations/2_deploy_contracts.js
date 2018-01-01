@@ -1,7 +1,8 @@
-var Broker = artifacts.require("./Broker.sol");
-var TokenBroker = artifacts.require("./TokenBroker.sol")
+var Broker = artifacts.require('BBroker.sol')
+var ECRecovery = artifacts.require('zeppelin-solidity/contracts/ECRecovery.sol')
 
 module.exports = async function(deployer) {
-  deployer.deploy(Broker, deployer.network_id);
-  deployer.deploy(TokenBroker, deployer.network_id);
+  await deployer.deploy(ECRecovery)
+  await deployer.link(ECRecovery, Broker)
+  await deployer.deploy(Broker, deployer.network_id)
 };
