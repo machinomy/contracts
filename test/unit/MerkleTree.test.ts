@@ -13,20 +13,19 @@ describe('MerkleTree', () => {
     '0xf2ee15ea639b73fa3db9b34a245bdfa015c260c598b211bf05a1ecc4b3e3b4f2'
   ].map(utils.toBuffer)
 
-  specify('calculate root', () => {
+  specify('#root', () => {
     let root = tree.root
     let expected = '0xeabc7452eee4f65d21a7edc9987de7047c7f2554db3dfeab6bff2d80e61c2022'
     assert.equal(utils.bufferToHex(root), expected)
   })
 
-  specify('generate proof', () => {
+  specify('#proof', () => {
     let proof = tree.proof(elements[0])
     assert.deepEqual(proof, expectedProof)
   })
 
-  specify('verify proof', () => {
+  specify('.verify', () => {
     let verify = MerkleTree.verify(expectedProof, tree.root, element)
     assert.isTrue(verify)
   })
-
 })
