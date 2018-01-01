@@ -4,8 +4,8 @@ declare module 'truffle-deployer' {
   namespace Deployer { }
 
   class Deployer {
-    deploy <A> (contract: truffle.TruffleContract<A>, ...args: Array<any>): Promise<void>
-    link <A, B> (library: truffle.TruffleContract<A>, contract: truffle.TruffleContract<B>): Promise<void>
+    deploy <A> (contract: truffle.TruffleContract<A>, ...args: Array<any>): void
+    link <A, B> (library: truffle.TruffleContract<A>, contract: truffle.TruffleContract<B>): void
     network_id: string
   }
 
