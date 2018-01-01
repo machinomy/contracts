@@ -7,8 +7,8 @@ yarn-error.log
 **/*.js.map
 **/*.d.ts
 !types/**/*.d.ts
-build/wrappers/*.ts
-build/wrappers/*.js
+migrations/*.js
+build/wrappers/
 helpers/*.js
 support/*.js
 coverage/
