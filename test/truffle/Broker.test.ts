@@ -1,14 +1,14 @@
 import * as Web3 from 'web3'
 import BigNumber from 'bignumber.js'
-
-import * as chai from 'chai'
-import * as asPromised from 'chai-as-promised'
 import * as abi from 'ethereumjs-abi'
 import * as util from 'ethereumjs-util'
 
 import { Broker } from '../../src/index'
-import { randomUnlock } from '../support'
+import { randomId } from '../support'
 import MerkleTree from '../../src/MerkleTree'
+
+import * as chai from 'chai'
+import * as asPromised from 'chai-as-promised'
 
 chai.use(asPromised)
 
@@ -45,7 +45,7 @@ contract('Broker', accounts => {
   let receiver = accounts[1]
   let alien = accounts[2]
   let channelValue = new BigNumber(web3.toWei(1, 'ether'))
-  let preimage = randomUnlock()
+  let preimage = randomId().toString()
   let instance: Broker.Contract
 
   before(async () => {

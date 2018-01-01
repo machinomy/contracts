@@ -13,11 +13,6 @@ export function randomId () {
   return datePart + extraPart
 }
 
-export function randomUnlock (_name?: string): string {
-  let name: string = _name || 'random'
-  return name + randomId().toString()
-}
-
 export async function transactionPrice (transactionResult: truffle.TransactionResult): Promise<BigNumber> {
   let amount = transactionResult.receipt.gasUsed
   return GAS_PRICE.mul(amount)
