@@ -16,7 +16,7 @@ async function signatureDigest(address, digest) {
     let hash = abi.soliditySHA3(['bytes', 'bytes32'], [prefix, digest]);
     return util.bufferToHex(hash);
 }
-contract('BBroker', accounts => {
+contract('Broker', accounts => {
     let sender = accounts[0];
     let receiver = accounts[1];
     let alien = accounts[2];
@@ -30,7 +30,7 @@ contract('BBroker', accounts => {
     });
     async function deployed() {
         let ecrecovery = artifacts.require('zeppelin-solidity/contracts/ECRecovery.sol');
-        let contract = artifacts.require('BBroker.sol');
+        let contract = artifacts.require('Broker.sol');
         if (contract.isDeployed()) {
             return contract.deployed();
         }
@@ -45,7 +45,7 @@ contract('BBroker', accounts => {
         let settlementPeriod = _settlementPeriod || 0;
         let log = await instance.open(receiver, settlementPeriod, options);
         let logEvent = log.logs[0];
-        if (index_1.BBroker.isDidOpenEvent(logEvent)) {
+        if (index_1.Broker.isDidOpenEvent(logEvent)) {
             return logEvent.args.channelId;
         }
         else {
@@ -156,7 +156,7 @@ contract('BBroker', accounts => {
         specify('emit DidStartSettling event', async () => {
             let channelId = await openChannel(instance);
             let tx = await startSettling(instance, channelId, sender);
-            assert.isTrue(tx.logs.some(index_1.BBroker.isDidStartSettlingEvent));
+            assert.isTrue(tx.logs.some(index_1.Broker.isDidStartSettlingEvent));
         });
         specify('set channel.settlingUntil', async () => {
             let settlingPeriod = 2;
@@ -227,7 +227,7 @@ contract('BBroker', accounts => {
             let senderSig = await sign(sender, fingerprint);
             let receiverSig = await sign(receiver, fingerprint);
             let tx = await instance.update(channelId, nonce, merkleRoot, senderSig, receiverSig);
-            assert.isTrue(tx.logs.some(index_1.BBroker.isDidUpdateEvent));
+            assert.isTrue(tx.logs.some(index_1.Broker.isDidUpdateEvent));
         });
         specify('set merkleRoot', async () => {
             let channelId = await openChannel(instance, 10);
@@ -311,7 +311,7 @@ contract('BBroker', accounts => {
                 await instance.update(channelId, nonce, root, senderSig, receiverSig);
                 await instance.startSettling(channelId);
                 let tx = await instance.withdraw(channelId, proof, preimage, amount);
-                assert.isTrue(tx.logs.some(index_1.BBroker.isDidWithdrawEvent));
+                assert.isTrue(tx.logs.some(index_1.Broker.isDidWithdrawEvent));
             });
             specify('not if open channel', async () => {
                 let channelId = await openChannel(instance);
@@ -377,7 +377,7 @@ contract('BBroker', accounts => {
                     await instance.update(channelId, nonce, root, senderSig, receiverSig);
                     await instance.startSettling(channelId);
                     let tx = await instance.withdraw(channelId, proof, preimage, channelValue);
-                    assert.isTrue(tx.logs.some(index_1.BBroker.isDidCloseEvent));
+                    assert.isTrue(tx.logs.some(index_1.Broker.isDidCloseEvent));
                 });
             });
         });
@@ -573,4 +573,4 @@ contract('BBroker', accounts => {
         // 3. update
     });
 });
-//# sourceMappingURL=BBroker.test.js.map
+//# sourceMappingURL=Broker.test.js.map

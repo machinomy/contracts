@@ -1,6 +1,6 @@
 import * as Deployer from 'truffle-deployer'
 
-const Broker = artifacts.require('BBroker.sol')
+const Broker = artifacts.require('Broker.sol')
 const ECRecovery = artifacts.require('zeppelin-solidity/contracts/ECRecovery.sol')
 
 module.exports = async (deployer: Deployer) => {

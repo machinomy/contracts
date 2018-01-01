@@ -5,7 +5,7 @@ import "zeppelin-solidity/contracts/math/SafeMath.sol";
 import "zeppelin-solidity/contracts/ECRecovery.sol";
 
 
-contract BBroker is Destructible {
+contract Broker is Destructible {
     using SafeMath for uint256;
 
     struct PaymentChannel {
@@ -33,7 +33,7 @@ contract BBroker is Destructible {
     event DidWithdraw(bytes32 indexed channelId, address destination, int256 amount);
     event DidClose(bytes32 indexed channelId);
 
-    function BBroker(uint32 _chainId) public {
+    function Broker(uint32 _chainId) public {
         chainId = _chainId;
         id = 0;
     }

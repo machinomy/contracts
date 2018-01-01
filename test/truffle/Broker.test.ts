@@ -6,7 +6,7 @@ import * as asPromised from 'chai-as-promised'
 import * as abi from 'ethereumjs-abi'
 import * as util from 'ethereumjs-util'
 
-import { BBroker } from '../../src/index'
+import { Broker } from '../../src/index'
 import { getNetwork, randomUnlock } from '../support'
 import ECRecovery from '../../build/wrappers/ECRecovery'
 import MerkleTree from '../../src/MerkleTree'
@@ -41,13 +41,13 @@ async function signatureDigest (address: string, digest: string): Promise<string
   return util.bufferToHex(hash)
 }
 
-contract('BBroker', accounts => {
+contract('Broker', accounts => {
   let sender = accounts[0]
   let receiver = accounts[1]
   let alien = accounts[2]
   let channelValue = new BigNumber(web3.toWei(1, 'ether'))
   let preimage = randomUnlock()
-  let instance: BBroker.Contract
+  let instance: Broker.Contract
 
   before(async () => {
     if (!instance) {
@@ -55,9 +55,9 @@ contract('BBroker', accounts => {
     }
   })
 
-  async function deployed (): Promise<BBroker.Contract> {
+  async function deployed (): Promise<Broker.Contract> {
     let ecrecovery = artifacts.require<ECRecovery.Contract>('zeppelin-solidity/contracts/ECRecovery.sol')
-    let contract = artifacts.require<BBroker.Contract>('BBroker.sol')
+    let contract = artifacts.require<Broker.Contract>('Broker.sol')
     if (contract.isDeployed()) {
       return contract.deployed()
     } else {
@@ -67,12 +67,12 @@ contract('BBroker', accounts => {
     }
   }
 
-  async function openChannel (instance: BBroker.Contract, _settlementPeriod?: number): Promise<string> {
+  async function openChannel (instance: Broker.Contract, _settlementPeriod?: number): Promise<string> {
     let options = { value: channelValue, from: sender }
     let settlementPeriod = _settlementPeriod || 0
     let log = await instance.open(receiver, settlementPeriod, options)
     let logEvent = log.logs[0]
-    if (BBroker.isDidOpenEvent(logEvent)) {
+    if (Broker.isDidOpenEvent(logEvent)) {
       return logEvent.args.channelId
     } else {
       return Promise.reject(log.receipt)
@@ -92,11 +92,11 @@ contract('BBroker', accounts => {
   }
 
 
-  async function startSettling (instance: BBroker.Contract, channelId: string, origin: string) {
+  async function startSettling (instance: Broker.Contract, channelId: string, origin: string) {
     return instance.startSettling(channelId, {from: origin})
   }
 
-  async function readChannel (instance: BBroker.Contract, channelId: string): Promise<PaymentChannel> {
+  async function readChannel (instance: Broker.Contract, channelId: string): Promise<PaymentChannel> {
     let [ sender, receiver, value, root, settlingPeriod, settlingUntil, nonce ] = await instance.channels(channelId)
     return { sender, receiver, value, root, settlingPeriod, settlingUntil, nonce }
   }
@@ -205,7 +205,7 @@ contract('BBroker', accounts => {
     specify('emit DidStartSettling event', async () => {
       let channelId = await openChannel(instance)
       let tx = await startSettling(instance, channelId, sender)
-      assert.isTrue(tx.logs.some(BBroker.isDidStartSettlingEvent))
+      assert.isTrue(tx.logs.some(Broker.isDidStartSettlingEvent))
     })
 
     specify('set channel.settlingUntil', async () => {
@@ -285,7 +285,7 @@ contract('BBroker', accounts => {
       let receiverSig = await sign(receiver, fingerprint)
 
       let tx = await instance.update(channelId, nonce, merkleRoot, senderSig, receiverSig)
-      assert.isTrue(tx.logs.some(BBroker.isDidUpdateEvent))
+      assert.isTrue(tx.logs.some(Broker.isDidUpdateEvent))
     })
     specify('set merkleRoot', async () => {
       let channelId = await openChannel(instance, 10)
@@ -381,7 +381,7 @@ contract('BBroker', accounts => {
         await instance.update(channelId, nonce, root, senderSig, receiverSig)
         await instance.startSettling(channelId)
         let tx = await instance.withdraw(channelId, proof, preimage, amount)
-        assert.isTrue(tx.logs.some(BBroker.isDidWithdrawEvent))
+        assert.isTrue(tx.logs.some(Broker.isDidWithdrawEvent))
       })
 
       specify('not if open channel', async () => {
@@ -457,7 +457,7 @@ contract('BBroker', accounts => {
           await instance.update(channelId, nonce, root, senderSig, receiverSig)
           await instance.startSettling(channelId)
           let tx = await instance.withdraw(channelId, proof, preimage, channelValue)
-          assert.isTrue(tx.logs.some(BBroker.isDidCloseEvent))
+          assert.isTrue(tx.logs.some(Broker.isDidCloseEvent))
         })
       })
     })

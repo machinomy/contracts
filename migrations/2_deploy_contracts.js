@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const Broker = artifacts.require('BBroker.sol');
+const Broker = artifacts.require('Broker.sol');
 const ECRecovery = artifacts.require('zeppelin-solidity/contracts/ECRecovery.sol');
 module.exports = async (deployer) => {
     await deployer.deploy(ECRecovery);

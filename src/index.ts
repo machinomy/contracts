@@ -3,13 +3,13 @@ import * as Web3 from 'web3'
 import * as abi from 'ethereumjs-abi'
 import BigNumber from 'bignumber.js'
 
-import BBroker from '../build/wrappers/BBroker'
+import Broker from '../build/wrappers/Broker'
 import MerkleTree from './MerkleTree'
 
 const BN = require('bn.js')
 
 export {
-  BBroker,
+  Broker,
   MerkleTree
 }
 
