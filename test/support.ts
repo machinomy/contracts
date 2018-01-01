@@ -4,11 +4,10 @@ import BigNumber from 'bignumber.js'
 
 export const GAS_PRICE = new BigNumber(100000000000)
 
-const EXTRA_DIGITS = 3
-export function randomId () {
-  const datePart = new Date().getTime() * Math.pow(10, EXTRA_DIGITS)
+export function randomId (digits: number = 3) {
+  const datePart = new Date().getTime() * Math.pow(10, digits)
   // 3 random digits
-  const extraPart = Math.floor(Math.random() * Math.pow(10, EXTRA_DIGITS))
+  const extraPart = Math.floor(Math.random() * Math.pow(10, digits))
   // 16 digits
   return datePart + extraPart
 }
