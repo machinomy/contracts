@@ -67,14 +67,10 @@ contract('Broker', accounts => {
     }
   }
 
-  async function chainId (): Promise<number> {
-    return instance.chainId().then(n => n.toNumber())
-  }
-
   async function paymentDigest (address: string, channelId: string, merkleRoot: string): Promise<string> {
     let hash = abi.soliditySHA3(
-      ['address', 'uint32', 'bytes32', 'bytes32'],
-      [address, await chainId(), channelId, merkleRoot]
+      ['address', 'bytes32', 'bytes32'],
+      [address, channelId, merkleRoot]
     )
     return util.bufferToHex(hash)
   }
@@ -91,8 +87,8 @@ contract('Broker', accounts => {
 
   async function packHashlock (channelId: string, hashlock: Hashlock): Promise<string> {
     let hashlockBuffer = abi.soliditySHA3(
-      ['uint32', 'bytes32', 'bytes32', 'int256'],
-      [(await chainId()), channelId, hashlock.preimage, hashlock.adjustment.toString()]
+      ['address', 'bytes32', 'bytes32', 'int256'],
+      [instance.address, channelId, hashlock.preimage, hashlock.adjustment.toString()]
     )
     return util.bufferToHex(hashlockBuffer)
   }

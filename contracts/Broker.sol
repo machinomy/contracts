@@ -24,7 +24,6 @@ contract Broker is Destructible {
 
     mapping (bytes32 => PaymentChannel) public channels;
 
-    uint32 public chainId;
     uint256 id;
 
     event DidOpen(bytes32 indexed channelId);
@@ -34,8 +33,7 @@ contract Broker is Destructible {
     event DidWithdraw(bytes32 indexed channelId, address destination, int256 amount);
     event DidClose(bytes32 indexed channelId);
 
-    function Broker(uint32 _chainId) public {
-        chainId = _chainId;
+    function Broker() public {
         id = 0;
     }
 
@@ -154,7 +152,7 @@ contract Broker is Destructible {
     }
 
     function paymentDigest(bytes32 channelId, bytes32 merkleRoot) public view returns(bytes32) {
-        return keccak256(address(this), chainId, channelId, merkleRoot);
+        return keccak256(address(this), channelId, merkleRoot);
     }
 
     function signatureDigest(bytes32 digest) public pure returns(bytes32) {
@@ -165,7 +163,7 @@ contract Broker is Destructible {
     /** Hashlocks and Merkle Trees **/
 
     function toHashlock(bytes32 channelId, bytes32 preimage, int256 amount) public view returns (bytes32) {
-        return keccak256(chainId, channelId, preimage, amount);
+        return keccak256(address(this), channelId, preimage, amount);
     }
 
     /** Channel State **/
