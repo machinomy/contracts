@@ -6,8 +6,7 @@ yarn-error.log
 
 **/*.js.map
 **/*.d.ts
-!src/globals.d.ts
-
+!types/**/*.d.ts
 build/wrappers/*.ts
 build/wrappers/*.js
 helpers/*.js

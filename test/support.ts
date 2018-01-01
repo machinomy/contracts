@@ -71,9 +71,3 @@ export class Gasoline {
     this.items.push(item)
   }
 }
-
-declare global {
-  export var artifacts: {
-    require <A> (name: string): truffle.TruffleContract<A>
-  }
-}
