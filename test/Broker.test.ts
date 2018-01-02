@@ -10,6 +10,8 @@ import MerkleTree from '../src/MerkleTree'
 import * as chai from 'chai'
 import * as asPromised from 'chai-as-promised'
 import * as S from './support/BrokerScaffold'
+import HexString from "./support/HexString";
+import PaymentUpdate from "./support/PaymentUpdate";
 
 chai.use(asPromised)
 
@@ -229,165 +231,109 @@ contract('Broker', accounts => {
   describe('withdraw', () => {
     let amount = new BigNumber.BigNumber(web3.toWei(0.01, 'ether'))
 
+    type Setup = {
+      channelId: HexString,
+      nextUpdate: PaymentUpdate,
+      proof: HexString,
+      root: HexString
+    }
+
+    async function prepare(settlingPeriod?: number, _amount?: BigNumber.BigNumber|number): Promise<Setup> {
+      let channelId = await s.openChannel({settlingPeriod})
+      let forWithdrawal = new BigNumber.BigNumber(_amount || amount)
+      let [proof, root] = await merkle(channelId, forWithdrawal)
+      let nextUpdate = await s.nextUpdate(channelId, root)
+
+      return { channelId, proof, root, nextUpdate }
+    }
+
+    async function act(start: Setup) {
+      await s.update(start.nextUpdate)
+      await instance.startSettling(start.channelId)
+      return await instance.withdraw(start.channelId, start.proof, preimage, amount)
+    }
+
     context('if correct proof', () => {
       specify('decrease channel value', async () => {
-        let channelId = await s.openChannel()
-        let channel = await s.readChannel(channelId)
-        let nonce = channel.nonce.plus(1)
-        let [proof, root] = await merkle(channelId, amount)
-        let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-        let senderSig = await sign(s.sender, fingerprint)
-        let receiverSig = await sign(s.receiver, fingerprint)
-
-        let valueBefore = channel.value
-        await instance.update(channelId, nonce, root, senderSig, receiverSig)
-        await instance.startSettling(channelId)
-        await instance.withdraw(channelId, proof, preimage, amount)
-        let valueAfter = (await s.readChannel(channelId)).value
-
+        let start = await prepare()
+        let valueBefore = (await s.readChannel(start.channelId)).value
+        await act(start)
+        let valueAfter = (await s.readChannel(start.channelId)).value
         assert.equal(valueAfter.minus(valueBefore).toString(), amount.mul(-1).toString())
       })
 
       specify('decrease contract balance', async () => {
-        let channelId = await s.openChannel()
-        let channel = await s.readChannel(channelId)
-        let nonce = channel.nonce.plus(1)
-        let [proof, root] = await merkle(channelId, amount)
-        let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-        let senderSig = await sign(s.sender, fingerprint)
-        let receiverSig = await sign(s.receiver, fingerprint)
-
+        let start = await prepare()
         let valueBefore = web3.eth.getBalance(instance.address)
-        await instance.update(channelId, nonce, root, senderSig, receiverSig)
-        await instance.startSettling(channelId)
-        await instance.withdraw(channelId, proof, preimage, amount)
+        await act(start)
         let valueAfter = web3.eth.getBalance(instance.address)
         assert.equal(valueAfter.minus(valueBefore).toString(), amount.mul(-1).toString())
       })
 
       specify('increase receiver balance', async () => {
-        let channelId = await s.openChannel()
-        let channel = await s.readChannel(channelId)
-        let nonce = channel.nonce.plus(1)
-        let [proof, root] = await merkle(channelId, amount)
-        let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-        let senderSig = await sign(s.sender, fingerprint)
-        let receiverSig = await sign(s.receiver, fingerprint)
-
+        let start = await prepare()
         let valueBefore = web3.eth.getBalance(s.receiver)
-        await instance.update(channelId, nonce, root, senderSig, receiverSig)
-        await instance.startSettling(channelId)
-        await instance.withdraw(channelId, proof, preimage, amount)
+        await act(start)
         let valueAfter = web3.eth.getBalance(s.receiver)
         assert.equal(valueAfter.minus(valueBefore).toString(), amount.toString())
       })
 
       specify('emit DidWithdraw event', async () => {
-        let channelId = await s.openChannel()
-        let channel = await s.readChannel(channelId)
-        let nonce = channel.nonce.plus(1)
-        let [proof, root] = await merkle(channelId, amount)
-        let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-        let senderSig = await sign(s.sender, fingerprint)
-        let receiverSig = await sign(s.receiver, fingerprint)
-
-        await instance.update(channelId, nonce, root, senderSig, receiverSig)
-        await instance.startSettling(channelId)
-        let tx = await instance.withdraw(channelId, proof, preimage, amount)
+        let start = await prepare()
+        let tx = await act(start)
         assert.isTrue(tx.logs.some(Broker.isDidWithdrawEvent))
       })
 
       specify('not if open channel', async () => {
-        let channelId = await s.openChannel()
-        let channel = await s.readChannel(channelId)
-        let nonce = channel.nonce.plus(1)
-        let [proof, root] = await merkle(channelId, amount)
-        let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-        let senderSig = await sign(s.sender, fingerprint)
-        let receiverSig = await sign(s.receiver, fingerprint)
-
-        await instance.update(channelId, nonce, root, senderSig, receiverSig)
-        assert.isTrue(await instance.isOpen(channelId))
-        return assert.isRejected(instance.withdraw(channelId, proof, preimage, amount, {from: s.alien}))
+        let start = await prepare()
+        await s.update(start.nextUpdate)
+        assert.isTrue(await instance.isOpen(start.channelId))
+        return assert.isRejected(instance.withdraw(start.channelId, start.proof, preimage, amount, {from: s.sender}))
       })
 
       specify('not if settling channel', async () => {
-        let channelId = await s.openChannel({ settlingPeriod: 10 })
-        let channel = await s.readChannel(channelId)
-        let nonce = channel.nonce.plus(1)
-        let [proof, root] = await merkle(channelId, amount)
-        let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-        let senderSig = await sign(s.sender, fingerprint)
-        let receiverSig = await sign(s.receiver, fingerprint)
-
-        await instance.update(channelId, nonce, root, senderSig, receiverSig)
-        await instance.startSettling(channelId)
-        assert.isTrue(await instance.isSettling(channelId))
-        return assert.isRejected(instance.withdraw(channelId, proof, preimage, amount, {from: s.alien}))
+        let start = await prepare(10)
+        await s.update(start.nextUpdate)
+        await instance.startSettling(start.channelId)
+        assert.isTrue(await instance.isSettling(start.channelId))
+        return assert.isRejected(instance.withdraw(start.channelId, start.proof, preimage, amount, {from: s.sender}))
       })
 
       specify('not if alien', async () => {
-        let channelId = await s.openChannel()
-        let channel = await s.readChannel(channelId)
-        let nonce = channel.nonce.plus(1)
-        let [proof, root] = await merkle(channelId, amount)
-        let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-        let senderSig = await sign(s.sender, fingerprint)
-        let receiverSig = await sign(s.receiver, fingerprint)
-
-        await instance.update(channelId, nonce, root, senderSig, receiverSig)
-        await instance.startSettling(channelId)
-        return assert.isRejected(instance.withdraw(channelId, proof, preimage, amount, {from: s.alien}))
+        let start = await prepare()
+        await s.update(start.nextUpdate)
+        await instance.startSettling(start.channelId)
+        return assert.isRejected(instance.withdraw(start.channelId, start.proof, preimage, amount, {from: s.alien}))
       })
 
       context('if last withdrawal', () => {
         specify('delete channel', async () => {
-          let channelId = await s.openChannel()
-          let channel = await s.readChannel(channelId)
-          let nonce = channel.nonce.plus(1)
-          let [proof, root] = await merkle(channelId, s.channelValue)
-          let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-          let senderSig = await sign(s.sender, fingerprint)
-          let receiverSig = await sign(s.receiver, fingerprint)
-
-          await instance.update(channelId, nonce, root, senderSig, receiverSig)
-          await instance.startSettling(channelId)
-          await instance.withdraw(channelId, proof, preimage, s.channelValue)
-          let valueAfter = (await s.readChannel(channelId)).value
+          let start = await prepare(undefined, s.channelValue)
+          await s.update(start.nextUpdate)
+          await instance.startSettling(start.channelId)
+          await instance.withdraw(start.channelId, start.proof, preimage, s.channelValue)
+          let valueAfter = (await s.readChannel(start.channelId)).value
           assert.equal(valueAfter.toString(), '0')
-          assert.isFalse(await instance.isPresent(channelId))
+          assert.isFalse(await instance.isPresent(start.channelId))
         })
 
         specify('emit DidClose event', async () => {
-          let channelId = await s.openChannel()
-          let channel = await s.readChannel(channelId)
-          let nonce = channel.nonce.plus(1)
-          let [proof, root] = await merkle(channelId, s.channelValue)
-          let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-          let senderSig = await sign(s.sender, fingerprint)
-          let receiverSig = await sign(s.receiver, fingerprint)
-
-          await instance.update(channelId, nonce, root, senderSig, receiverSig)
-          await instance.startSettling(channelId)
-          let tx = await instance.withdraw(channelId, proof, preimage, s.channelValue)
+          let start = await prepare(undefined, s.channelValue)
+          await s.update(start.nextUpdate)
+          await instance.startSettling(start.channelId)
+          let tx = await instance.withdraw(start.channelId, start.proof, preimage, s.channelValue)
           assert.isTrue(tx.logs.some(Broker.isDidCloseEvent))
         })
       })
     })
 
-    context('if incorrect proof', () => {
+    context('if incorrect preimage', () => {
+      const wrongPreimage = '0xcafe'
       specify('fail', async () => {
-        let channelId = await s.openChannel()
-        let channel = await s.readChannel(channelId)
-        let nonce = channel.nonce.plus(1)
-        let [proof, root] = await merkle(channelId, amount)
-        let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-        let senderSig = await sign(s.sender, fingerprint)
-        let receiverSig = await sign(s.receiver, fingerprint)
-
-        await instance.update(channelId, nonce, root, senderSig, receiverSig)
-        await instance.startSettling(channelId)
-        return assert.isRejected(instance.withdraw(channelId, proof, '0xcafe', s.channelValue))
+        let start = await prepare()
+        await s.update(start.nextUpdate)
+        await instance.startSettling(start.channelId)
+        return assert.isRejected(instance.withdraw(start.channelId, start.proof, wrongPreimage, s.channelValue))
       })
     })
   })
