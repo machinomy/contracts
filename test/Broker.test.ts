@@ -19,16 +19,7 @@ const web3 = (global as any).web3 as Web3
 
 const BrokerContract = artifacts.require<Broker.Contract>('Broker.sol')
 
-interface Hashlock {
-  preimage: string
-  adjustment: BigNumber.BigNumber
-}
-
 contract('Broker', accounts => {
-  let sender = accounts[0]
-  let receiver = accounts[1]
-  let alien = accounts[2]
-  let channelValue = new BigNumber.BigNumber(web3.toWei(1, 'ether'))
   let preimage = randomId().toString()
 
   let instance: Broker.Contract
@@ -41,22 +32,11 @@ contract('Broker', accounts => {
         instance: instance,
         sender: accounts[0],
         receiver: accounts[1],
+        alien: accounts[2],
         channelValue: new BigNumber.BigNumber(web3.toWei(1, 'ether'))
       })
     }
   })
-
-  async function startSettling (instance: Broker.Contract, channelId: string, origin: string) {
-    return instance.startSettling(channelId, {from: origin})
-  }
-
-  async function packHashlock (channelId: string, hashlock: Hashlock): Promise<string> {
-    let hashlockBuffer = abi.soliditySHA3(
-      ['address', 'bytes32', 'bytes32', 'int256'],
-      [instance.address, channelId, hashlock.preimage, hashlock.adjustment.toString()]
-    )
-    return util.bufferToHex(hashlockBuffer)
-  }
 
   async function combineHashlocks (channelId: string, ...elements: Array<[string, BigNumber.BigNumber]>): Promise<Array<Buffer>> {
     let promisedHashlocks = elements.map(async e => util.toBuffer(await instance.toHashlock(channelId, e[0], e[1])))
@@ -89,7 +69,7 @@ contract('Broker', accounts => {
   }
 
   async function merkle (channelId: string, _amount?: BigNumber.BigNumber): Promise<[string, string]> {
-    let payment: BigNumber.BigNumber = _amount || channelValue
+    let payment: BigNumber.BigNumber = _amount || s.channelValue
     let hashlocks = await combineHashlocks(channelId, [preimage, payment])
     let merkleTree = new MerkleTree(hashlocks)
     let proof = merkleTree.proof(hashlocks[0])
@@ -107,41 +87,41 @@ contract('Broker', accounts => {
       let startBalance = web3.eth.getBalance(instance.address)
       await s.openChannel()
       let endBalance = web3.eth.getBalance(instance.address)
-      assert.deepEqual(endBalance, startBalance.plus(channelValue))
+      assert.deepEqual(endBalance, startBalance.plus(s.channelValue))
     })
 
     specify('set channel parameters', async () => {
       let channelId = await s.openChannel()
       let channel = await s.readChannel(channelId)
-      assert.equal(channel.sender, sender)
-      assert.equal(channel.receiver, receiver)
-      assert.equal(channel.value.toString(), channelValue.toString())
+      assert.equal(channel.sender, s.sender)
+      assert.equal(channel.receiver, s.receiver)
+      assert.equal(channel.value.toString(), s.channelValue.toString())
     })
   })
 
   describe('canStartSettling', () => {
     specify('ok', async () => {
       let channelId = await s.openChannel()
-      assert.isTrue(await instance.canStartSettling(channelId, sender))
-      assert.isTrue(await instance.canStartSettling(channelId, receiver))
+      assert.isTrue(await instance.canStartSettling(channelId, s.sender))
+      assert.isTrue(await instance.canStartSettling(channelId, s.receiver))
     })
 
     specify('not if missing channel', async () => {
-      assert.isFalse(await instance.canStartSettling(S.FAKE_CHANNEL_ID, sender))
-      assert.isFalse(await instance.canStartSettling(S.FAKE_CHANNEL_ID, receiver))
+      assert.isFalse(await instance.canStartSettling(S.FAKE_CHANNEL_ID, s.sender))
+      assert.isFalse(await instance.canStartSettling(S.FAKE_CHANNEL_ID, s.receiver))
     })
 
     specify('not if alien', async () => {
       let channelId = await s.openChannel()
-      assert.isFalse(await instance.canStartSettling(channelId, alien))
+      assert.isFalse(await instance.canStartSettling(channelId, s.alien))
     })
 
     specify('not if settling', async () => {
       let channelId = await s.openChannel({settlingPeriod: 10})
-      await startSettling(instance, channelId, sender)
+      await s.startSettling(channelId)
       assert.isTrue(await instance.isSettling(channelId))
-      assert.isFalse(await instance.canStartSettling(channelId, sender))
-      assert.isFalse(await instance.canStartSettling(channelId, receiver))
+      assert.isFalse(await instance.canStartSettling(channelId, s.sender))
+      assert.isFalse(await instance.canStartSettling(channelId, s.receiver))
     })
   })
 
@@ -150,13 +130,13 @@ contract('Broker', accounts => {
 
     specify('emit DidStartSettling event', async () => {
       let channelId = await s.openChannel()
-      let tx = await startSettling(instance, channelId, sender)
+      let tx = await s.startSettling(channelId)
       assert.isTrue(tx.logs.some(Broker.isDidStartSettlingEvent))
     })
 
     specify('set channel params', async () => {
       let channelId = await s.openChannel({ settlingPeriod })
-      let tx = await startSettling(instance, channelId, sender)
+      let tx = await s.startSettling(channelId)
       let blockNumber = tx.receipt.blockNumber
       let channel = await s.readChannel(channelId)
       assert.equal(channel.settlingUntil.toNumber(), settlingPeriod + blockNumber)
@@ -172,7 +152,7 @@ contract('Broker', accounts => {
       let channelId = await s.openChannel({settlingPeriod})
       assert.isFalse(await instance.isSettled(channelId))
 
-      await startSettling(instance, channelId, sender)
+      let tx = await s.startSettling(channelId)
       assert.isTrue(await instance.isSettling(channelId))
       assert.isFalse(await instance.isOpen(channelId))
       assert.isFalse(await instance.isSettled(channelId))
@@ -180,35 +160,38 @@ contract('Broker', accounts => {
       let nonce = (await s.readChannel(channelId)).nonce.plus(1)
 
       let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
-      let senderSig = await sign(sender, fingerprint)
-      let receiverSig = await sign(receiver, fingerprint)
+      let senderSig = await sign(s.sender, fingerprint)
+      let receiverSig = await sign(s.receiver, fingerprint)
       assert.isTrue(await instance.canUpdate(channelId, nonce, merkleRoot, senderSig, receiverSig))
     })
+
     specify('not if alien', async () => {
       let channelId = await s.openChannel({settlingPeriod})
       let nonce = (await s.readChannel(channelId)).nonce.plus(1)
       let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
-      let alienSig = await sign(alien, fingerprint)
-      let senderSig = await sign(sender, fingerprint)
-      let receiverSig = await sign(receiver, fingerprint)
+      let alienSig = await sign(s.alien, fingerprint)
+      let senderSig = await sign(s.sender, fingerprint)
+      let receiverSig = await sign(s.receiver, fingerprint)
       assert.isFalse(await instance.canUpdate(channelId, nonce, merkleRoot, alienSig, receiverSig))
       assert.isFalse(await instance.canUpdate(channelId, nonce, merkleRoot, senderSig, alienSig))
     })
+
     specify('not if lower or equal nonce', async () => {
       let channelId = await s.openChannel({settlingPeriod})
       let nonce = (await s.readChannel(channelId)).nonce
       let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
-      let senderSig = await sign(sender, fingerprint)
-      let receiverSig = await sign(receiver, fingerprint)
+      let senderSig = await sign(s.sender, fingerprint)
+      let receiverSig = await sign(s.receiver, fingerprint)
       assert.isFalse(await instance.canUpdate(channelId, nonce, merkleRoot, senderSig, receiverSig))
     })
+
     specify('not if settled', async () => {
       let channelId = await s.openChannel()
-      await startSettling(instance, channelId, sender)
+      await s.startSettling(channelId)
       let nonce = (await s.readChannel(channelId)).nonce.plus(1)
       let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
-      let senderSig = await sign(sender, fingerprint)
-      let receiverSig = await sign(receiver, fingerprint)
+      let senderSig = await sign(s.sender, fingerprint)
+      let receiverSig = await sign(s.receiver, fingerprint)
       assert.isFalse(await instance.canUpdate(channelId, nonce, merkleRoot, senderSig, receiverSig))
     })
   })
@@ -222,31 +205,33 @@ contract('Broker', accounts => {
       let merkleRoot = util.bufferToHex(abi.rawEncode(['bytes32'], ['0xcafebabe']))
 
       let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
-      let senderSig = await sign(sender, fingerprint)
-      let receiverSig = await sign(receiver, fingerprint)
+      let senderSig = await sign(s.sender, fingerprint)
+      let receiverSig = await sign(s.receiver, fingerprint)
 
       let tx = await instance.update(channelId, nonce, merkleRoot, senderSig, receiverSig)
       assert.isTrue(tx.logs.some(Broker.isDidUpdateEvent))
     })
+
     specify('set merkleRoot', async () => {
       let channelId = await s.openChannel({settlingPeriod})
       let nonce = (await s.readChannel(channelId)).nonce.plus(1)
       let merkleRoot = util.bufferToHex(abi.rawEncode(['bytes32'], ['0xcafebabe']))
       let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
-      let senderSig = await sign(sender, fingerprint)
-      let receiverSig = await sign(receiver, fingerprint)
+      let senderSig = await sign(s.sender, fingerprint)
+      let receiverSig = await sign(s.receiver, fingerprint)
 
       await instance.update(channelId, nonce, merkleRoot, senderSig, receiverSig)
       let newMerkleRoot = (await s.readChannel(channelId)).root
       assert.equal(newMerkleRoot, merkleRoot)
     })
+
     specify('set nonce', async () => {
       let channelId = await s.openChannel({settlingPeriod})
       let nonce = (await s.readChannel(channelId)).nonce.plus(1)
       let merkleRoot = util.bufferToHex(abi.rawEncode(['bytes32'], ['0xcafebabe']))
       let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
-      let senderSig = await sign(sender, fingerprint)
-      let receiverSig = await sign(receiver, fingerprint)
+      let senderSig = await sign(s.sender, fingerprint)
+      let receiverSig = await sign(s.receiver, fingerprint)
 
       await instance.update(channelId, nonce, merkleRoot, senderSig, receiverSig)
       let newNonce = (await s.readChannel(channelId)).nonce
@@ -264,8 +249,8 @@ contract('Broker', accounts => {
         let nonce = channel.nonce.plus(1)
         let [proof, root] = await merkle(channelId, amount)
         let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-        let senderSig = await sign(sender, fingerprint)
-        let receiverSig = await sign(receiver, fingerprint)
+        let senderSig = await sign(s.sender, fingerprint)
+        let receiverSig = await sign(s.receiver, fingerprint)
 
         let valueBefore = channel.value
         await instance.update(channelId, nonce, root, senderSig, receiverSig)
@@ -282,8 +267,8 @@ contract('Broker', accounts => {
         let nonce = channel.nonce.plus(1)
         let [proof, root] = await merkle(channelId, amount)
         let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-        let senderSig = await sign(sender, fingerprint)
-        let receiverSig = await sign(receiver, fingerprint)
+        let senderSig = await sign(s.sender, fingerprint)
+        let receiverSig = await sign(s.receiver, fingerprint)
 
         let valueBefore = web3.eth.getBalance(instance.address)
         await instance.update(channelId, nonce, root, senderSig, receiverSig)
@@ -299,14 +284,14 @@ contract('Broker', accounts => {
         let nonce = channel.nonce.plus(1)
         let [proof, root] = await merkle(channelId, amount)
         let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-        let senderSig = await sign(sender, fingerprint)
-        let receiverSig = await sign(receiver, fingerprint)
+        let senderSig = await sign(s.sender, fingerprint)
+        let receiverSig = await sign(s.receiver, fingerprint)
 
-        let valueBefore = web3.eth.getBalance(receiver)
+        let valueBefore = web3.eth.getBalance(s.receiver)
         await instance.update(channelId, nonce, root, senderSig, receiverSig)
         await instance.startSettling(channelId)
         await instance.withdraw(channelId, proof, preimage, amount)
-        let valueAfter = web3.eth.getBalance(receiver)
+        let valueAfter = web3.eth.getBalance(s.receiver)
         assert.equal(valueAfter.minus(valueBefore).toString(), amount.toString())
       })
 
@@ -316,8 +301,8 @@ contract('Broker', accounts => {
         let nonce = channel.nonce.plus(1)
         let [proof, root] = await merkle(channelId, amount)
         let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-        let senderSig = await sign(sender, fingerprint)
-        let receiverSig = await sign(receiver, fingerprint)
+        let senderSig = await sign(s.sender, fingerprint)
+        let receiverSig = await sign(s.receiver, fingerprint)
 
         await instance.update(channelId, nonce, root, senderSig, receiverSig)
         await instance.startSettling(channelId)
@@ -331,12 +316,12 @@ contract('Broker', accounts => {
         let nonce = channel.nonce.plus(1)
         let [proof, root] = await merkle(channelId, amount)
         let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-        let senderSig = await sign(sender, fingerprint)
-        let receiverSig = await sign(receiver, fingerprint)
+        let senderSig = await sign(s.sender, fingerprint)
+        let receiverSig = await sign(s.receiver, fingerprint)
 
         await instance.update(channelId, nonce, root, senderSig, receiverSig)
         assert.isTrue(await instance.isOpen(channelId))
-        return assert.isRejected(instance.withdraw(channelId, proof, preimage, amount, {from: alien}))
+        return assert.isRejected(instance.withdraw(channelId, proof, preimage, amount, {from: s.alien}))
       })
 
       specify('not if settling channel', async () => {
@@ -345,13 +330,13 @@ contract('Broker', accounts => {
         let nonce = channel.nonce.plus(1)
         let [proof, root] = await merkle(channelId, amount)
         let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-        let senderSig = await sign(sender, fingerprint)
-        let receiverSig = await sign(receiver, fingerprint)
+        let senderSig = await sign(s.sender, fingerprint)
+        let receiverSig = await sign(s.receiver, fingerprint)
 
         await instance.update(channelId, nonce, root, senderSig, receiverSig)
         await instance.startSettling(channelId)
         assert.isTrue(await instance.isSettling(channelId))
-        return assert.isRejected(instance.withdraw(channelId, proof, preimage, amount, {from: alien}))
+        return assert.isRejected(instance.withdraw(channelId, proof, preimage, amount, {from: s.alien}))
       })
 
       specify('not if alien', async () => {
@@ -360,12 +345,12 @@ contract('Broker', accounts => {
         let nonce = channel.nonce.plus(1)
         let [proof, root] = await merkle(channelId, amount)
         let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-        let senderSig = await sign(sender, fingerprint)
-        let receiverSig = await sign(receiver, fingerprint)
+        let senderSig = await sign(s.sender, fingerprint)
+        let receiverSig = await sign(s.receiver, fingerprint)
 
         await instance.update(channelId, nonce, root, senderSig, receiverSig)
         await instance.startSettling(channelId)
-        return assert.isRejected(instance.withdraw(channelId, proof, preimage, amount, {from: alien}))
+        return assert.isRejected(instance.withdraw(channelId, proof, preimage, amount, {from: s.alien}))
       })
 
       context('if last withdrawal', () => {
@@ -373,14 +358,14 @@ contract('Broker', accounts => {
           let channelId = await s.openChannel()
           let channel = await s.readChannel(channelId)
           let nonce = channel.nonce.plus(1)
-          let [proof, root] = await merkle(channelId, channelValue)
+          let [proof, root] = await merkle(channelId, s.channelValue)
           let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-          let senderSig = await sign(sender, fingerprint)
-          let receiverSig = await sign(receiver, fingerprint)
+          let senderSig = await sign(s.sender, fingerprint)
+          let receiverSig = await sign(s.receiver, fingerprint)
 
           await instance.update(channelId, nonce, root, senderSig, receiverSig)
           await instance.startSettling(channelId)
-          await instance.withdraw(channelId, proof, preimage, channelValue)
+          await instance.withdraw(channelId, proof, preimage, s.channelValue)
           let valueAfter = (await s.readChannel(channelId)).value
           assert.equal(valueAfter.toString(), '0')
           assert.isFalse(await instance.isPresent(channelId))
@@ -390,14 +375,14 @@ contract('Broker', accounts => {
           let channelId = await s.openChannel()
           let channel = await s.readChannel(channelId)
           let nonce = channel.nonce.plus(1)
-          let [proof, root] = await merkle(channelId, channelValue)
+          let [proof, root] = await merkle(channelId, s.channelValue)
           let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-          let senderSig = await sign(sender, fingerprint)
-          let receiverSig = await sign(receiver, fingerprint)
+          let senderSig = await sign(s.sender, fingerprint)
+          let receiverSig = await sign(s.receiver, fingerprint)
 
           await instance.update(channelId, nonce, root, senderSig, receiverSig)
           await instance.startSettling(channelId)
-          let tx = await instance.withdraw(channelId, proof, preimage, channelValue)
+          let tx = await instance.withdraw(channelId, proof, preimage, s.channelValue)
           assert.isTrue(tx.logs.some(Broker.isDidCloseEvent))
         })
       })
@@ -410,24 +395,13 @@ contract('Broker', accounts => {
         let nonce = channel.nonce.plus(1)
         let [proof, root] = await merkle(channelId, amount)
         let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-        let senderSig = await sign(sender, fingerprint)
-        let receiverSig = await sign(receiver, fingerprint)
+        let senderSig = await sign(s.sender, fingerprint)
+        let receiverSig = await sign(s.receiver, fingerprint)
 
         await instance.update(channelId, nonce, root, senderSig, receiverSig)
         await instance.startSettling(channelId)
-        return assert.isRejected(instance.withdraw(channelId, proof, '0xcafe', channelValue))
+        return assert.isRejected(instance.withdraw(channelId, proof, '0xcafe', s.channelValue))
       })
-    })
-  })
-
-  describe('toHashlock', () => {
-    specify('return packed lock, adjustment', async () => {
-      let hashlock: Hashlock = {
-        preimage: web3.sha3('hello'),
-        adjustment: channelValue.mul(-1)
-      }
-      let rawHashlock = await instance.toHashlock(S.FAKE_CHANNEL_ID, hashlock.preimage, hashlock.adjustment)
-      assert.equal(rawHashlock, await packHashlock(S.FAKE_CHANNEL_ID, hashlock))
     })
   })
 
@@ -445,7 +419,7 @@ contract('Broker', accounts => {
   describe('isSettling', () => {
     specify('if channel.settlingUntil', async () => {
       let channelId = await s.openChannel({ settlingPeriod: 10 })
-      await startSettling(instance, channelId, sender)
+      await s.startSettling(channelId)
       let channel = await s.readChannel(channelId)
       assert.notEqual(channel.settlingUntil.toNumber(), 0)
       assert.isTrue(await instance.isSettling(channelId))
@@ -464,7 +438,7 @@ contract('Broker', accounts => {
 
     specify('not if settling', async () => {
       let channelId = await s.openChannel({settlingPeriod: 10})
-      await startSettling(instance, channelId, sender)
+      await s.startSettling(channelId)
       assert.isTrue(await instance.isSettling(channelId))
       assert.isFalse(await instance.isOpen(channelId))
       assert.isFalse(await instance.isSettled(channelId))
@@ -481,10 +455,10 @@ contract('Broker', accounts => {
       let channelId = await s.openChannel()
       let channel = await s.readChannel(channelId)
       let nonce = channel.nonce.plus(1)
-      let root = (await merkle(channelId, channelValue))[1]
+      let root = (await merkle(channelId, s.channelValue))[1]
       let fingerprint = await instance.settleFingerprint(channelId, nonce, root)
-      let senderSig = await sign(sender, fingerprint)
-      let receiverSig = await sign(receiver, fingerprint)
+      let senderSig = await sign(s.sender, fingerprint)
+      let receiverSig = await sign(s.receiver, fingerprint)
       let tx = await instance.settle(channelId, nonce, root, senderSig, receiverSig)
       let blockNumber = tx.receipt.blockNumber
       let channelAfter = await s.readChannel(channelId)
@@ -495,10 +469,10 @@ contract('Broker', accounts => {
       let channelId = await s.openChannel()
       let channel = await s.readChannel(channelId)
       let nonce = channel.nonce.plus(1)
-      let root = (await merkle(channelId, channelValue))[1]
+      let root = (await merkle(channelId, s.channelValue))[1]
       let fingerprint = await instance.settleFingerprint(channelId, nonce, root)
-      let senderSig = await sign(sender, fingerprint)
-      let receiverSig = await sign(receiver, fingerprint)
+      let senderSig = await sign(s.sender, fingerprint)
+      let receiverSig = await sign(s.receiver, fingerprint)
       await instance.settle(channelId, nonce, root, senderSig, receiverSig)
       let channelAfter = await s.readChannel(channelId)
       assert.equal(channelAfter.root, root)
@@ -508,10 +482,10 @@ contract('Broker', accounts => {
       let channelId = await s.openChannel()
       let channel = await s.readChannel(channelId)
       let nonce = channel.nonce.plus(1)
-      let root = (await merkle(channelId, channelValue))[1]
+      let root = (await merkle(channelId, s.channelValue))[1]
       let fingerprint = await instance.settleFingerprint(channelId, nonce, root)
-      let senderSig = await sign(sender, fingerprint)
-      let receiverSig = await sign(receiver, fingerprint)
+      let senderSig = await sign(s.sender, fingerprint)
+      let receiverSig = await sign(s.receiver, fingerprint)
       await instance.settle(channelId, nonce, root, senderSig, receiverSig)
       let channelAfter = await s.readChannel(channelId)
       assert.equal(channelAfter.root, root)
@@ -520,45 +494,45 @@ contract('Broker', accounts => {
     async function updateChannel (channelId: string, value: BigNumber.BigNumber) {
       let channel = await s.readChannel(channelId)
       let nonce = channel.nonce.plus(10)
-      let root = (await merkle(channelId, channelValue))[1]
+      let root = (await merkle(channelId, s.channelValue))[1]
       let fingerprint = await instance.updateFingerprint(channelId, nonce, root)
-      let senderSig = await sign(sender, fingerprint)
-      let receiverSig = await sign(receiver, fingerprint)
+      let senderSig = await sign(s.sender, fingerprint)
+      let receiverSig = await sign(s.receiver, fingerprint)
       return await instance.update(channelId, nonce, root, senderSig, receiverSig)
     }
 
     specify('not if lower nonce', async () => {
       let channelId = await s.openChannel()
-      await updateChannel(channelId, channelValue)
+      await updateChannel(channelId, s.channelValue)
 
       let channel = await s.readChannel(channelId)
       let nonce = channel.nonce.minus(1)
-      let root = (await merkle(channelId, channelValue))[1]
+      let root = (await merkle(channelId, s.channelValue))[1]
       let fingerprint = await instance.settleFingerprint(channelId, nonce, root)
-      let senderSig = await sign(sender, fingerprint)
-      let receiverSig = await sign(receiver, fingerprint)
+      let senderSig = await sign(s.sender, fingerprint)
+      let receiverSig = await sign(s.receiver, fingerprint)
       return assert.isRejected(instance.settle(channelId, nonce, root, senderSig, receiverSig))
     })
     specify('not if not signed by sender', async () => {
       let channelId = await s.openChannel()
-      await updateChannel(channelId, channelValue)
+      await updateChannel(channelId, s.channelValue)
 
       let channel = await s.readChannel(channelId)
       let nonce = channel.nonce.minus(1)
-      let root = (await merkle(channelId, channelValue))[1]
+      let root = (await merkle(channelId, s.channelValue))[1]
       let fingerprint = await instance.settleFingerprint(channelId, nonce, root)
-      let receiverSig = await sign(receiver, fingerprint)
+      let receiverSig = await sign(s.receiver, fingerprint)
       return assert.isRejected(instance.settle(channelId, nonce, root, '0xdeadbeaf', receiverSig))
     })
     specify('not if not signed by receiver', async () => {
       let channelId = await s.openChannel()
-      await updateChannel(channelId, channelValue)
+      await updateChannel(channelId, s.channelValue)
 
       let channel = await s.readChannel(channelId)
       let nonce = channel.nonce.minus(1)
-      let root = (await merkle(channelId, channelValue))[1]
+      let root = (await merkle(channelId, s.channelValue))[1]
       let fingerprint = await instance.settleFingerprint(channelId, nonce, root)
-      let senderSig = await sign(sender, fingerprint)
+      let senderSig = await sign(s.sender, fingerprint)
       return assert.isRejected(instance.settle(channelId, nonce, root, senderSig, '0xdeadbeaf'))
     })
   })
@@ -567,15 +541,15 @@ contract('Broker', accounts => {
     specify('ok', async () => {
       let channelId = await s.openChannel()
       let merkleRoot = '0xcafebabe'
-      let senderSig = await signPayment(sender, channelId, merkleRoot)
-      let receiverSig = await signPayment(receiver, channelId, merkleRoot)
+      let senderSig = await signPayment(s.sender, channelId, merkleRoot)
+      let receiverSig = await signPayment(s.receiver, channelId, merkleRoot)
       assert.isTrue(await instance.isSignedPayment(channelId, merkleRoot, senderSig, receiverSig))
     })
 
     specify('not if not signed by sender', async () => {
       let channelId = await s.openChannel()
       let merkleRoot = '0xcafebabe'
-      let receiverSig = await signPayment(receiver, channelId, merkleRoot)
+      let receiverSig = await signPayment(s.receiver, channelId, merkleRoot)
 
       assert.isFalse(await instance.isSignedPayment(channelId, merkleRoot, '0xdeadbeaf', receiverSig))
     })
@@ -583,7 +557,7 @@ contract('Broker', accounts => {
     specify('not if not signed by receiver', async () => {
       let channelId = await s.openChannel()
       let merkleRoot = '0xcafebabe'
-      let senderSig = await signPayment(sender, channelId, merkleRoot)
+      let senderSig = await signPayment(s.sender, channelId, merkleRoot)
 
       assert.isFalse(await instance.isSignedPayment(channelId, merkleRoot, senderSig, '0xdeadbeaf'))
     })

@@ -2,6 +2,7 @@ import * as BigNumber from 'bignumber.js'
 import Broker from '../../build/wrappers/Broker'
 import Address from './Address'
 import PaymentChannel from './PaymentChannel'
+import * as truffle from 'truffle-contract'
 
 export const FAKE_CHANNEL_ID = '0xdeadbeaf'
 
@@ -10,6 +11,7 @@ export interface Opts {
   channelValue: BigNumber.BigNumber
   sender: Address
   receiver: Address
+  alien: Address
 }
 
 export interface OpenChannelOpts {
@@ -23,12 +25,14 @@ export class BrokerScaffold {
   channelValue: BigNumber.BigNumber
   sender: Address
   receiver: Address
+  alien: Address
 
   constructor (opts: Opts) {
     this.instance = opts.instance
     this.channelValue = opts.channelValue
     this.sender = opts.sender
     this.receiver = opts.receiver
+    this.alien = opts.alien
   }
 
   async openChannel (opts: OpenChannelOpts = {}): Promise<string> {
@@ -51,5 +55,10 @@ export class BrokerScaffold {
     let raw = await this.instance.channels(channelId)
     let [ sender, receiver, value, root, settlingPeriod, settlingUntil, nonce ] = raw
     return { sender, receiver, value, root, settlingPeriod, settlingUntil, nonce }
+  }
+
+  async startSettling (channelId: string, _origin?: string): Promise<truffle.TransactionResult> {
+    let origin = _origin || this.sender
+    return this.instance.startSettling(channelId, {from: origin})
   }
 }
