@@ -10,10 +10,10 @@ import MerkleTree from '../src/MerkleTree'
 import * as chai from 'chai'
 import * as asPromised from 'chai-as-promised'
 import * as S from './support/BrokerScaffold'
-import HexString from "./support/HexString";
-import PaymentUpdate from "./support/PaymentUpdate";
-import {randomPreimage} from "./support/BrokerScaffold";
-import {toHashlock} from "./support/merkle";
+import HexString from './support/HexString'
+import PaymentUpdate from './support/PaymentUpdate'
+import { randomPreimage } from './support/BrokerScaffold'
+import { toHashlock } from './support/merkle'
 
 chai.use(asPromised)
 
@@ -240,7 +240,7 @@ contract('Broker', accounts => {
       root: HexString
     }
 
-    async function prepare(settlingPeriod?: number, _amount?: BigNumber.BigNumber|number): Promise<Setup> {
+    async function prepare (settlingPeriod?: number, _amount?: BigNumber.BigNumber|number): Promise<Setup> {
       let channelId = await s.openChannel({settlingPeriod})
       let forWithdrawal = new BigNumber.BigNumber(_amount || amount)
       let [proof, root] = await merkle(channelId, forWithdrawal)
@@ -249,7 +249,7 @@ contract('Broker', accounts => {
       return { channelId, proof, root, nextUpdate }
     }
 
-    async function act(start: Setup) {
+    async function act (start: Setup) {
       await s.update(start.nextUpdate)
       await instance.startSettling(start.channelId)
       return await instance.withdraw(start.channelId, start.proof, preimage, amount)
@@ -393,7 +393,7 @@ contract('Broker', accounts => {
       root: HexString
     }
 
-    async function prepare(_amount?: BigNumber.BigNumber|number): Promise<Setup> {
+    async function prepare (_amount?: BigNumber.BigNumber|number): Promise<Setup> {
       let channelId = await s.openChannel()
       let forWithdrawal = new BigNumber.BigNumber(_amount || s.channelValue)
       let [proof, root] = await merkle(channelId, forWithdrawal)
@@ -496,7 +496,7 @@ contract('Broker', accounts => {
       let amount = new BigNumber.BigNumber(300)
       let preimage = randomPreimage()
       let canonical = await instance.toHashlock(channelId, preimage, amount)
-      let calculated = await toHashlock(instance.address, channelId, preimage, amount)
+      let calculated = toHashlock(instance.address, channelId, preimage, amount)
       assert.deepEqual(canonical, util.bufferToHex(calculated))
     })
   })

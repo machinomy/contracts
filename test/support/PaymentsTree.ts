@@ -2,7 +2,6 @@ import HexString from './HexString'
 import * as BigNumber from 'bignumber.js'
 import { toHashlock, hexProof } from './merkle'
 import Address from './Address'
-import {Buffer} from "buffer";
 import MerkleTree from '../../src/MerkleTree'
 import * as util from 'ethereumjs-util'
 
@@ -44,7 +43,7 @@ export default class PaymentsTree {
     return util.bufferToHex(this._merkleTree.root)
   }
 
-  constructor(address: Address, channelId: HexString, elements?: Array<PaymentLeaf>) {
+  constructor (address: Address, channelId: HexString, elements?: Array<PaymentLeaf>) {
     this.address = address
     this.elements = elements ? elements : []
     this.channelId = channelId
@@ -63,12 +62,12 @@ export default class PaymentsTree {
     return hexProof(merkleProof)
   }
 
+  toHashlock (amount: BigNumber.BigNumber, preimage: HexString): Buffer {
+    return toHashlock(this.address, this.channelId, preimage, amount)
+  }
+
   protected regenerateMerkleTree () {
     let buffers = this.elements.map(e => util.toBuffer(e.hashlock))
     this._merkleTree = new MerkleTree(buffers)
-  }
-
-  toHashlock (amount: BigNumber.BigNumber, preimage: HexString): Buffer {
-    return toHashlock(this.address, this.channelId, preimage, amount)
   }
 }

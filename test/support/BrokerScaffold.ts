@@ -74,22 +74,6 @@ export class BrokerScaffold {
     return this.genericUpdate(channelId, merkleRoot, fingerprint, _sender, _receiver)
   }
 
-  protected async genericUpdate (channelId: HexString, merkleRoot: HexString, fingerprint: HexString, _sender?: Address, _receiver?: Address, _nonce?: number): Promise<PaymentUpdate> {
-    let channel = await this.readChannel(channelId)
-    let nextNonce = (_nonce || _nonce === 0) ? _nonce : channel.nonce.toNumber() + 1
-    let sender = _sender || this.sender
-    let receiver = _receiver || this.receiver
-    let senderSig = await this.sign(sender, fingerprint)
-    let receiverSig = await this.sign(receiver, fingerprint)
-    return {
-      channelId: channelId,
-      nonce: nextNonce,
-      merkleRoot: merkleRoot,
-      senderSig: senderSig,
-      receiverSig: receiverSig
-    }
-  }
-
   async nextSettleUpdate (channelId: HexString, merkleRoot: HexString, _sender?: Address, _receiver?: Address, _nonce?: number): Promise<PaymentUpdate> {
     let channel = await this.readChannel(channelId)
     let nextNonce = (_nonce || _nonce === 0) ? _nonce : channel.nonce.toNumber() + 1
@@ -125,9 +109,25 @@ export class BrokerScaffold {
       })
     })
   }
+
+  protected async genericUpdate (channelId: HexString, merkleRoot: HexString, fingerprint: HexString, _sender?: Address, _receiver?: Address, _nonce?: number): Promise<PaymentUpdate> {
+    let channel = await this.readChannel(channelId)
+    let nextNonce = (_nonce || _nonce === 0) ? _nonce : channel.nonce.toNumber() + 1
+    let sender = _sender || this.sender
+    let receiver = _receiver || this.receiver
+    let senderSig = await this.sign(sender, fingerprint)
+    let receiverSig = await this.sign(receiver, fingerprint)
+    return {
+      channelId: channelId,
+      nonce: nextNonce,
+      merkleRoot: merkleRoot,
+      senderSig: senderSig,
+      receiverSig: receiverSig
+    }
+  }
 }
 
-export async function inSequence(times: number, fn: () => Promise<void>): Promise<void> {
+export async function inSequence (times: number, fn: () => Promise<void>): Promise<void> {
   await Array.from(Array(times)).reduce(prev => {
     return prev.then(async () => {
       await fn()
@@ -135,7 +135,7 @@ export async function inSequence(times: number, fn: () => Promise<void>): Promis
   }, Promise.resolve())
 }
 
-export function randomPreimage(): string {
+export function randomPreimage (): string {
   let raw = uuid() + randomId().toString()
   return util.bufferToHex(util.sha3(raw))
 }

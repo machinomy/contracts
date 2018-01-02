@@ -6,10 +6,10 @@ import { Broker } from '../src/index'
 import * as chai from 'chai'
 import * as asPromised from 'chai-as-promised'
 import * as S from './support/BrokerScaffold'
-import PaymentsTree, {KnownPaymentLeaf} from "./support/PaymentsTree";
-import {randomPreimage} from "./support/BrokerScaffold";
-import Address from "./support/Address";
-import {GAS_PRICE} from "./support";
+import PaymentsTree, { KnownPaymentLeaf } from './support/PaymentsTree'
+import { randomPreimage } from './support/BrokerScaffold'
+import Address from './support/Address'
+import { GAS_PRICE } from './support'
 
 chai.use(asPromised)
 
@@ -37,7 +37,7 @@ contract('Unidirectional Scenario', accounts => {
     }
   })
 
-  async function withdraw(channelId: string, tree: PaymentsTree, payment: KnownPaymentLeaf, origin: Address) {
+  async function withdraw (channelId: string, tree: PaymentsTree, payment: KnownPaymentLeaf, origin: Address) {
     let proof = tree.proof(payment)
     return instance.withdraw(channelId, proof, payment.preimage, payment.amount, { from: origin })
   }
@@ -55,8 +55,8 @@ contract('Unidirectional Scenario', accounts => {
     // 2. Sender sends 0.1 ETH to the receiver.
     let tree = new PaymentsTree(instance.address, channelId)
     let payments = [0.1, -0.9]
-    payments.forEach(number => {
-      let amount = new BigNumber.BigNumber(web3.toWei(number, 'ether'))
+    payments.forEach(p => {
+      let amount = new BigNumber.BigNumber(web3.toWei(p, 'ether'))
       tree.addPayment(amount, randomPreimage())
     })
 
@@ -106,8 +106,8 @@ contract('Unidirectional Scenario', accounts => {
     // 2. Sender sends 0.1 ETH to the receiver.
     let tree = new PaymentsTree(instance.address, channelId)
     let payments = [0.1, -0.9]
-    payments.forEach(number => {
-      let amount = new BigNumber.BigNumber(web3.toWei(number, 'ether'))
+    payments.forEach(p => {
+      let amount = new BigNumber.BigNumber(web3.toWei(p, 'ether'))
       tree.addPayment(amount, randomPreimage())
     })
 
