@@ -384,44 +384,36 @@ contract('Broker', accounts => {
   })
 
   describe('settle', () => {
-    specify('end settling period', async () => {
-      let channelId = await s.openChannel()
-      let channel = await s.readChannel(channelId)
-      let nonce = channel.nonce.plus(1)
-      let root = (await merkle(channelId, s.channelValue))[1]
-      let fingerprint = await instance.settleFingerprint(channelId, nonce, root)
-      let senderSig = await sign(s.sender, fingerprint)
-      let receiverSig = await sign(s.receiver, fingerprint)
-      let tx = await instance.settle(channelId, nonce, root, senderSig, receiverSig)
-      let blockNumber = tx.receipt.blockNumber
-      let channelAfter = await s.readChannel(channelId)
-      assert.equal(channelAfter.settlingUntil.toNumber(), blockNumber)
-    })
+    type Setup = {
+      channelId: HexString,
+      nextUpdate: PaymentUpdate,
+      proof: HexString,
+      root: HexString
+    }
 
-    specify('set merkleRoot', async () => {
+    async function prepare(_amount?: BigNumber.BigNumber|number): Promise<Setup> {
       let channelId = await s.openChannel()
-      let channel = await s.readChannel(channelId)
-      let nonce = channel.nonce.plus(1)
-      let root = (await merkle(channelId, s.channelValue))[1]
-      let fingerprint = await instance.settleFingerprint(channelId, nonce, root)
-      let senderSig = await sign(s.sender, fingerprint)
-      let receiverSig = await sign(s.receiver, fingerprint)
-      await instance.settle(channelId, nonce, root, senderSig, receiverSig)
-      let channelAfter = await s.readChannel(channelId)
-      assert.equal(channelAfter.root, root)
+      let forWithdrawal = new BigNumber.BigNumber(_amount || s.channelValue)
+      let [proof, root] = await merkle(channelId, forWithdrawal)
+      let nextUpdate = await s.nextSettleUpdate(channelId, root)
+
+      return { channelId, proof, root, nextUpdate }
+    }
+
+    specify('set channel params', async () => {
+      let start = await prepare(s.channelValue)
+      let tx = await s.settle(start.nextUpdate)
+      let blockNumber = tx.receipt.blockNumber
+      let channelAfter = await s.readChannel(start.channelId)
+      assert.equal(channelAfter.settlingUntil.toNumber(), blockNumber)
+      assert.equal(channelAfter.root, start.root)
     })
 
     specify('not if settled', async () => {
-      let channelId = await s.openChannel()
-      let channel = await s.readChannel(channelId)
-      let nonce = channel.nonce.plus(1)
-      let root = (await merkle(channelId, s.channelValue))[1]
-      let fingerprint = await instance.settleFingerprint(channelId, nonce, root)
-      let senderSig = await sign(s.sender, fingerprint)
-      let receiverSig = await sign(s.receiver, fingerprint)
-      await instance.settle(channelId, nonce, root, senderSig, receiverSig)
-      let channelAfter = await s.readChannel(channelId)
-      assert.equal(channelAfter.root, root)
+      let start = await prepare(s.channelValue)
+      await s.settle(start.nextUpdate)
+      let nextUpdate = await s.nextSettleUpdate(start.channelId, start.root)
+      return assert.isRejected(s.settle(nextUpdate))
     })
 
     async function updateChannel (channelId: string, value: BigNumber.BigNumber) {

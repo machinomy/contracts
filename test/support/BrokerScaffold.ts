@@ -67,6 +67,12 @@ export class BrokerScaffold {
     let channel = await this.readChannel(channelId)
     let nextNonce = (_nonce || _nonce === 0) ? _nonce : channel.nonce.toNumber() + 1
     let fingerprint = await this.instance.updateFingerprint(channelId, nextNonce, merkleRoot)
+    return this.genericUpdate(channelId, merkleRoot, fingerprint, _sender, _receiver)
+  }
+
+  protected async genericUpdate (channelId: HexString, merkleRoot: HexString, fingerprint: HexString, _sender?: Address, _receiver?: Address, _nonce?: number): Promise<PaymentUpdate> {
+    let channel = await this.readChannel(channelId)
+    let nextNonce = (_nonce || _nonce === 0) ? _nonce : channel.nonce.toNumber() + 1
     let sender = _sender || this.sender
     let receiver = _receiver || this.receiver
     let senderSig = await this.sign(sender, fingerprint)
@@ -80,12 +86,23 @@ export class BrokerScaffold {
     }
   }
 
+  async nextSettleUpdate (channelId: HexString, merkleRoot: HexString, _sender?: Address, _receiver?: Address, _nonce?: number): Promise<PaymentUpdate> {
+    let channel = await this.readChannel(channelId)
+    let nextNonce = (_nonce || _nonce === 0) ? _nonce : channel.nonce.toNumber() + 1
+    let fingerprint = await this.instance.settleFingerprint(channelId, nextNonce, merkleRoot)
+    return this.genericUpdate(channelId, merkleRoot, fingerprint, _sender, _receiver)
+  }
+
   async canUpdate (update: PaymentUpdate): Promise<boolean> {
     return this.instance.canUpdate(update.channelId, update.nonce, update.merkleRoot, update.senderSig, update.receiverSig)
   }
 
   async update (update: PaymentUpdate): Promise<truffle.TransactionResult> {
     return this.instance.update(update.channelId, update.nonce, update.merkleRoot, update.senderSig, update.receiverSig)
+  }
+
+  async settle (update: PaymentUpdate): Promise<truffle.TransactionResult> {
+    return this.instance.settle(update.channelId, update.nonce, update.merkleRoot, update.senderSig, update.receiverSig)
   }
 
   async startSettling (channelId: string, _origin?: string): Promise<truffle.TransactionResult> {
