@@ -6,6 +6,9 @@ import PaymentChannel from './PaymentChannel'
 import * as truffle from 'truffle-contract'
 import HexString from './HexString'
 import PaymentUpdate from './PaymentUpdate'
+import { randomId } from '../support'
+import * as uuid from 'uuid'
+import * as util from 'ethereumjs-util'
 
 export const FAKE_CHANNEL_ID = '0xdeadbeaf'
 
@@ -22,6 +25,7 @@ export interface OpenChannelOpts {
   sender?: Address
   receiver?: Address
   settlingPeriod?: number
+  value?: BigNumber.BigNumber
 }
 
 export class BrokerScaffold {
@@ -43,7 +47,7 @@ export class BrokerScaffold {
 
   async openChannel (opts: OpenChannelOpts = {}): Promise<string> {
     let options = {
-      value: this.channelValue,
+      value: opts.value || this.channelValue,
       from: opts.sender || this.sender
     }
     let receiver = opts.receiver || this.receiver
@@ -101,8 +105,12 @@ export class BrokerScaffold {
     return this.instance.update(update.channelId, update.nonce, update.merkleRoot, update.senderSig, update.receiverSig)
   }
 
-  async settle (update: PaymentUpdate): Promise<truffle.TransactionResult> {
-    return this.instance.settle(update.channelId, update.nonce, update.merkleRoot, update.senderSig, update.receiverSig)
+  async settle (update: PaymentUpdate, from?: Address): Promise<truffle.TransactionResult> {
+    let opts: Web3.CallData = {}
+    if (from) {
+      opts.from = from
+    }
+    return this.instance.settle(update.channelId, update.nonce, update.merkleRoot, update.senderSig, update.receiverSig, opts)
   }
 
   async startSettling (channelId: string, _origin?: string): Promise<truffle.TransactionResult> {
@@ -125,4 +133,9 @@ export async function inSequence(times: number, fn: () => Promise<void>): Promis
       await fn()
     })
   }, Promise.resolve())
+}
+
+export function randomPreimage(): string {
+  let raw = uuid() + randomId().toString()
+  return util.bufferToHex(util.sha3(raw))
 }

@@ -12,6 +12,8 @@ import * as asPromised from 'chai-as-promised'
 import * as S from './support/BrokerScaffold'
 import HexString from "./support/HexString";
 import PaymentUpdate from "./support/PaymentUpdate";
+import {randomPreimage} from "./support/BrokerScaffold";
+import {toHashlock} from "./support/merkle";
 
 chai.use(asPromised)
 
@@ -485,6 +487,17 @@ contract('Broker', accounts => {
       let senderSig = await signPayment(s.sender, channelId, merkleRoot)
 
       assert.isFalse(await instance.isSignedPayment(channelId, merkleRoot, senderSig, '0xdeadbeaf'))
+    })
+  })
+
+  describe('toHashlock', () => {
+    specify('calculate hashlock', async () => {
+      let channelId = await s.openChannel()
+      let amount = new BigNumber.BigNumber(300)
+      let preimage = randomPreimage()
+      let canonical = await instance.toHashlock(channelId, preimage, amount)
+      let calculated = await toHashlock(instance.address, channelId, preimage, amount)
+      assert.deepEqual(canonical, util.bufferToHex(calculated))
     })
   })
 })

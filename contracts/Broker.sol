@@ -34,7 +34,7 @@ contract Broker {
     event DidUpdate(bytes32 indexed channelId, bytes32 merkleRoot);
     event DidStartSettling(bytes32 indexed channelId);
     event DidSettle(bytes32 indexed channelId);
-    event DidWithdraw(bytes32 indexed channelId, address destination, int256 amount);
+    event DidWithdraw(bytes32 indexed channelId, address destination, uint256 amount);
     event DidClose(bytes32 indexed channelId);
 
     function Broker() public {
@@ -132,13 +132,20 @@ contract Broker {
         require(canWithdraw(channelId, proof, preimage, amount, msg.sender));
 
         var channel = channels[channelId];
+        uint256 payment;
+        address destination;
 
         if (amount >= 0) {
-            var payment = uint256(amount);
-            channel.value -= payment;
-            require(channel.receiver.send(payment));
-            DidWithdraw(channelId, channel.receiver, amount);
+            payment = uint256(amount);
+            destination = channel.receiver;
+        } else {
+            payment = uint256(-amount);
+            destination = channel.sender;
         }
+
+        channel.value -= payment;
+        require(destination.send(payment));
+        DidWithdraw(channelId, destination, payment);
 
         if (channel.value == 0) {
             delete channels[channelId];
