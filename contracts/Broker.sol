@@ -1,12 +1,16 @@
 pragma solidity ^0.4.18;
 
-import "zeppelin-solidity/contracts/lifecycle/Destructible.sol";
 import "zeppelin-solidity/contracts/math/SafeMath.sol";
 import "zeppelin-solidity/contracts/ECRecovery.sol";
 import "zeppelin-solidity/contracts/MerkleProof.sol";
 
 
-contract Broker is Destructible {
+/**
+ * @title Payment Channels Broker
+ * @author Sergey Ukustov <sergey.ukustov@machinomy.com>
+ */
+
+contract Broker {
     using SafeMath for uint256;
 
     struct PaymentChannel {

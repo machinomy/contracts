@@ -14,7 +14,7 @@
   "config": {
     "wrapped_artifacts": "build/contracts/@(Broker|ECRecovery|MerkleProof).json",
     "wrappers_dir": "build/wrappers",
-    "truffle_tests": "test/truffle/*.test.js"
+    "truffle_tests": "test/*.test.js"
   },
   "scripts": {
     "prepublish": "",
