@@ -10,6 +10,7 @@ import PaymentsTree, { KnownPaymentLeaf } from './support/PaymentsTree'
 import { randomPreimage } from './support/BrokerScaffold'
 import Address from './support/Address'
 import { GAS_PRICE } from './support'
+import { hexProof } from './support/merkle'
 
 chai.use(asPromised)
 
@@ -39,7 +40,7 @@ contract('Unidirectional Scenario', accounts => {
 
   async function withdraw (channelId: string, tree: PaymentsTree, payment: KnownPaymentLeaf, origin: Address) {
     let proof = tree.proof(payment)
-    return instance.withdraw(channelId, proof, payment.preimage, payment.amount, { from: origin })
+    return instance.withdraw(channelId, hexProof(proof), payment.preimage, payment.amount, { from: origin })
   }
 
   // 1. Sender opens a 1ETH channel to a receiver.

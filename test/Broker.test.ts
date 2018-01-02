@@ -4,7 +4,7 @@ import * as abi from 'ethereumjs-abi'
 import * as util from 'ethereumjs-util'
 
 import { Broker } from '../src/index'
-import { randomId } from './support'
+import { GAS_PRICE, randomId } from './support'
 import MerkleTree from '../src/MerkleTree'
 
 import * as chai from 'chai'
@@ -14,6 +14,7 @@ import HexString from './support/HexString'
 import PaymentUpdate from './support/PaymentUpdate'
 import { randomPreimage } from './support/BrokerScaffold'
 import { toHashlock } from './support/merkle'
+import PaymentsTree from './support/PaymentsTree'
 
 chai.use(asPromised)
 
@@ -25,6 +26,7 @@ const BrokerContract = artifacts.require<Broker.Contract>('Broker.sol')
 
 contract('Broker', accounts => {
   let preimage = randomId().toString()
+  let singlePayment = new BigNumber.BigNumber(web3.toWei(0.01, 'ether'))
 
   let instance: Broker.Contract
   let s: S.BrokerScaffold
@@ -42,6 +44,28 @@ contract('Broker', accounts => {
       })
     }
   })
+
+  type WithdrawSetup = {
+    channelId: HexString,
+    nextUpdate: PaymentUpdate,
+    proof: HexString,
+    root: HexString
+  }
+
+  async function prepare (settlingPeriod?: number, _amount?: BigNumber.BigNumber|number): Promise<WithdrawSetup> {
+    let channelId = await s.openChannel({settlingPeriod})
+    let forWithdrawal = new BigNumber.BigNumber(_amount || singlePayment)
+    let [proof, root] = await merkle(channelId, forWithdrawal)
+    let nextUpdate = await s.nextUpdate(channelId, root)
+
+    return { channelId, proof, root, nextUpdate }
+  }
+
+  async function doWithdraw (start: WithdrawSetup) {
+    await s.update(start.nextUpdate)
+    await instance.startSettling(start.channelId)
+    return await instance.withdraw(start.channelId, start.proof, preimage, singlePayment)
+  }
 
   async function combineHashlocks (channelId: string, ...elements: Array<[string, BigNumber.BigNumber]>): Promise<Array<Buffer>> {
     let promisedHashlocks = elements.map(async e => util.toBuffer(await instance.toHashlock(channelId, e[0], e[1])))
@@ -231,58 +255,34 @@ contract('Broker', accounts => {
   })
 
   describe('withdraw', () => {
-    let amount = new BigNumber.BigNumber(web3.toWei(0.01, 'ether'))
-
-    type Setup = {
-      channelId: HexString,
-      nextUpdate: PaymentUpdate,
-      proof: HexString,
-      root: HexString
-    }
-
-    async function prepare (settlingPeriod?: number, _amount?: BigNumber.BigNumber|number): Promise<Setup> {
-      let channelId = await s.openChannel({settlingPeriod})
-      let forWithdrawal = new BigNumber.BigNumber(_amount || amount)
-      let [proof, root] = await merkle(channelId, forWithdrawal)
-      let nextUpdate = await s.nextUpdate(channelId, root)
-
-      return { channelId, proof, root, nextUpdate }
-    }
-
-    async function act (start: Setup) {
-      await s.update(start.nextUpdate)
-      await instance.startSettling(start.channelId)
-      return await instance.withdraw(start.channelId, start.proof, preimage, amount)
-    }
-
     context('if correct proof', () => {
       specify('decrease channel value', async () => {
         let start = await prepare()
         let valueBefore = (await s.readChannel(start.channelId)).value
-        await act(start)
+        await doWithdraw(start)
         let valueAfter = (await s.readChannel(start.channelId)).value
-        assert.equal(valueAfter.minus(valueBefore).toString(), amount.mul(-1).toString())
+        assert.equal(valueAfter.minus(valueBefore).toString(), singlePayment.mul(-1).toString())
       })
 
       specify('decrease contract balance', async () => {
         let start = await prepare()
         let valueBefore = web3.eth.getBalance(instance.address)
-        await act(start)
+        await doWithdraw(start)
         let valueAfter = web3.eth.getBalance(instance.address)
-        assert.equal(valueAfter.minus(valueBefore).toString(), amount.mul(-1).toString())
+        assert.equal(valueAfter.minus(valueBefore).toString(), singlePayment.mul(-1).toString())
       })
 
       specify('increase receiver balance', async () => {
         let start = await prepare()
         let valueBefore = web3.eth.getBalance(s.receiver)
-        await act(start)
+        await doWithdraw(start)
         let valueAfter = web3.eth.getBalance(s.receiver)
-        assert.equal(valueAfter.minus(valueBefore).toString(), amount.toString())
+        assert.equal(valueAfter.minus(valueBefore).toString(), singlePayment.toString())
       })
 
       specify('emit DidWithdraw event', async () => {
         let start = await prepare()
-        let tx = await act(start)
+        let tx = await doWithdraw(start)
         assert.isTrue(tx.logs.some(Broker.isDidWithdrawEvent))
       })
 
@@ -290,7 +290,7 @@ contract('Broker', accounts => {
         let start = await prepare()
         await s.update(start.nextUpdate)
         assert.isTrue(await instance.isOpen(start.channelId))
-        return assert.isRejected(instance.withdraw(start.channelId, start.proof, preimage, amount, {from: s.sender}))
+        return assert.isRejected(instance.withdraw(start.channelId, start.proof, preimage, singlePayment, {from: s.sender}))
       })
 
       specify('not if settling channel', async () => {
@@ -298,14 +298,14 @@ contract('Broker', accounts => {
         await s.update(start.nextUpdate)
         await instance.startSettling(start.channelId)
         assert.isTrue(await instance.isSettling(start.channelId))
-        return assert.isRejected(instance.withdraw(start.channelId, start.proof, preimage, amount, {from: s.sender}))
+        return assert.isRejected(instance.withdraw(start.channelId, start.proof, preimage, singlePayment, {from: s.sender}))
       })
 
       specify('not if alien', async () => {
         let start = await prepare()
         await s.update(start.nextUpdate)
         await instance.startSettling(start.channelId)
-        return assert.isRejected(instance.withdraw(start.channelId, start.proof, preimage, amount, {from: s.alien}))
+        return assert.isRejected(instance.withdraw(start.channelId, start.proof, preimage, singlePayment, {from: s.alien}))
       })
 
       context('if last withdrawal', () => {
@@ -337,6 +337,53 @@ contract('Broker', accounts => {
         await instance.startSettling(start.channelId)
         return assert.isRejected(instance.withdraw(start.channelId, start.proof, wrongPreimage, s.channelValue))
       })
+    })
+  })
+
+  describe('withdrawFast', () => {
+    function encode (amount: BigNumber.BigNumber, preimage: HexString, proof: Array<Buffer>): Buffer {
+      let types = ['int256', 'bytes32', 'uint256']
+      proof.forEach(p => {
+        types.push('bytes32')
+      })
+      return abi.rawEncode(types, [amount.toString(), preimage, proof.length * 32, ...proof])
+    }
+
+    async function withdrawalProofs (channelId: string, tree: PaymentsTree): Promise<Buffer> {
+      let triplets = tree.knownLeaves.map(leaf => {
+        let proof = tree.proof(leaf)
+        return encode(leaf.amount, leaf.preimage, proof)
+      })
+      return Buffer.concat(triplets)
+    }
+
+    specify('do multiple withdrawals', async () => {
+      let channelId = await s.openChannel()
+
+      let paymentsTree = new PaymentsTree(instance.address, channelId)
+      let toReceiver = new BigNumber.BigNumber(web3.toWei(0.1, 'ether'))
+      let toSender = new BigNumber.BigNumber(web3.toWei(0.9, 'ether'))
+      paymentsTree.addPayment(toReceiver, randomPreimage())
+      paymentsTree.addPayment(toSender.mul(-1), randomPreimage())
+
+      let nextUpdate = await s.nextSettleUpdate(channelId, paymentsTree.root)
+      await s.settle(nextUpdate, s.sender)
+
+      let receiverBefore = web3.eth.getBalance(s.receiver)
+      let senderBefore = web3.eth.getBalance(s.sender)
+      let combined = await withdrawalProofs(channelId, paymentsTree)
+      let tx = await instance.withdrawFast(channelId, util.bufferToHex(combined), {from: s.sender})
+      let txCost = GAS_PRICE.mul(tx.receipt.gasUsed)
+      let receiverAfter = web3.eth.getBalance(s.receiver)
+      let senderAfter = web3.eth.getBalance(s.sender)
+
+      assert.deepEqual(senderAfter, senderBefore.plus(toSender).minus(txCost))
+      assert.deepEqual(receiverAfter, receiverBefore.plus(toReceiver))
+
+      console.log(tx.receipt)
+
+      assert.isTrue(tx.logs.some(Broker.isDidWithdrawEvent))
+      assert.isTrue(tx.logs.some(Broker.isDidCloseEvent))
     })
   })
 

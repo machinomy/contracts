@@ -120,6 +120,26 @@ contract Broker {
         DidUpdate(channelId, merkleRoot);
     }
 
+    function withdrawFast(bytes32 channelId, bytes withdrawal) public {
+        uint256 offset = 0;
+        while (offset < withdrawal.length) {
+            int256 amount;
+            bytes32 preimage;
+            uint256 proofLength;
+            assembly {
+                amount := mload(add(withdrawal, add(offset, 32)))
+                preimage := mload(add(withdrawal, add(offset, 64)))
+                proofLength := mload(add(withdrawal, add(offset, 96)))
+            }
+            bytes memory proof = new bytes(proofLength);
+            for (uint256 i = 0; i < proofLength; i += 1) {
+                proof[i] = withdrawal[i + offset + 96];
+            }
+            withdraw(channelId, proof, preimage, amount);
+            offset += 96 + proofLength;
+        }
+    }
+
     function canWithdraw(bytes32 channelId, bytes proof, bytes32 hashlock, address origin) public view returns(bool) {
         var channel = channels[channelId];
         var isProof = MerkleProof.verifyProof(proof, channel.merkleRoot, hashlock);

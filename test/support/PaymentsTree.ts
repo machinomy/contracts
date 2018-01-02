@@ -1,6 +1,6 @@
 import HexString from './HexString'
 import * as BigNumber from 'bignumber.js'
-import { toHashlock, hexProof } from './merkle'
+import { toHashlock } from './merkle'
 import Address from './Address'
 import MerkleTree from '../../src/MerkleTree'
 import * as util from 'ethereumjs-util'
@@ -21,6 +21,10 @@ export class KnownPaymentLeaf implements PaymentLeaf {
     this.preimage = preimage
     this.hashlock = hashlock
   }
+
+  static itsMe (leaf: PaymentLeaf): leaf is KnownPaymentLeaf {
+    return leaf.preimage !== undefined
+  }
 }
 
 export class UnknownPaymentLeaf implements PaymentLeaf {
@@ -39,6 +43,10 @@ export default class PaymentsTree {
   address: Address
   _merkleTree: MerkleTree
 
+  get knownLeaves (): Array<KnownPaymentLeaf> {
+    return this.elements.filter(KnownPaymentLeaf.itsMe)
+  }
+
   get root (): HexString {
     return util.bufferToHex(this._merkleTree.root)
   }
@@ -56,10 +64,9 @@ export default class PaymentsTree {
     this.regenerateMerkleTree()
   }
 
-  proof (leaf: KnownPaymentLeaf): HexString {
+  proof (leaf: KnownPaymentLeaf): Array<Buffer> {
     let hashlock = leaf.hashlock
-    let merkleProof = this._merkleTree.proof(hashlock)
-    return hexProof(merkleProof)
+    return this._merkleTree.proof(hashlock)
   }
 
   toHashlock (amount: BigNumber.BigNumber, preimage: HexString): Buffer {
