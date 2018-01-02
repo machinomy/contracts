@@ -34,7 +34,7 @@ contract Broker {
     event DidUpdate(bytes32 indexed channelId, bytes32 merkleRoot);
     event DidStartSettling(bytes32 indexed channelId);
     event DidSettle(bytes32 indexed channelId);
-    event DidWithdraw(bytes32 indexed channelId, address destination, uint256 amount);
+    event DidWithdraw(bytes32 indexed channelId, address destination, bytes32 indexed hashlock, bytes32 indexed preimage, uint256 amount);
     event DidClose(bytes32 indexed channelId);
 
     function Broker() public {
@@ -120,16 +120,16 @@ contract Broker {
         DidUpdate(channelId, merkleRoot);
     }
 
-    function canWithdraw(bytes32 channelId, bytes proof, bytes32 preimage, int256 amount, address origin) public view returns(bool) {
+    function canWithdraw(bytes32 channelId, bytes proof, bytes32 hashlock, address origin) public view returns(bool) {
         var channel = channels[channelId];
-        var hashlock = toHashlock(channelId, preimage, amount);
         var isProof = MerkleProof.verifyProof(proof, channel.merkleRoot, hashlock);
         bool isParty = (channel.sender == origin) || (channel.receiver == origin);
         return isSettled(channelId) && isProof && isParty;
     }
 
     function withdraw(bytes32 channelId, bytes proof, bytes32 preimage, int256 amount) public {
-        require(canWithdraw(channelId, proof, preimage, amount, msg.sender));
+        var hashlock = toHashlock(channelId, preimage, amount);
+        require(canWithdraw(channelId, proof, hashlock, msg.sender));
 
         var channel = channels[channelId];
         uint256 payment;
@@ -145,7 +145,7 @@ contract Broker {
 
         channel.value -= payment;
         require(destination.send(payment));
-        DidWithdraw(channelId, destination, payment);
+        DidWithdraw(channelId, destination, hashlock, preimage, payment);
 
         if (channel.value == 0) {
             delete channels[channelId];
