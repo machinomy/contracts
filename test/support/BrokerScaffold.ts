@@ -1,8 +1,11 @@
 import * as BigNumber from 'bignumber.js'
+import * as Web3 from 'web3'
 import Broker from '../../build/wrappers/Broker'
 import Address from './Address'
 import PaymentChannel from './PaymentChannel'
 import * as truffle from 'truffle-contract'
+import HexString from './HexString'
+import PaymentUpdate from './PaymentUpdate'
 
 export const FAKE_CHANNEL_ID = '0xdeadbeaf'
 
@@ -12,6 +15,7 @@ export interface Opts {
   sender: Address
   receiver: Address
   alien: Address
+  web3: Web3
 }
 
 export interface OpenChannelOpts {
@@ -26,6 +30,7 @@ export class BrokerScaffold {
   sender: Address
   receiver: Address
   alien: Address
+  web3: Web3
 
   constructor (opts: Opts) {
     this.instance = opts.instance
@@ -33,6 +38,7 @@ export class BrokerScaffold {
     this.sender = opts.sender
     this.receiver = opts.receiver
     this.alien = opts.alien
+    this.web3 = opts.web3
   }
 
   async openChannel (opts: OpenChannelOpts = {}): Promise<string> {
@@ -57,8 +63,49 @@ export class BrokerScaffold {
     return { sender, receiver, value, root, settlingPeriod, settlingUntil, nonce }
   }
 
+  async nextUpdate (channelId: HexString, merkleRoot: HexString, _sender?: Address, _receiver?: Address, _nonce?: number): Promise<PaymentUpdate> {
+    let channel = await this.readChannel(channelId)
+    let nextNonce = (_nonce || _nonce === 0) ? _nonce : channel.nonce.toNumber() + 1
+    let fingerprint = await this.instance.updateFingerprint(channelId, nextNonce, merkleRoot)
+    let sender = _sender || this.sender
+    let receiver = _receiver || this.receiver
+    let senderSig = await this.sign(sender, fingerprint)
+    let receiverSig = await this.sign(receiver, fingerprint)
+    return {
+      channelId: channelId,
+      nonce: nextNonce,
+      merkleRoot: merkleRoot,
+      senderSig: senderSig,
+      receiverSig: receiverSig
+    }
+  }
+
+  async canUpdate (update: PaymentUpdate): Promise<boolean> {
+    return this.instance.canUpdate(update.channelId, update.nonce, update.merkleRoot, update.senderSig, update.receiverSig)
+  }
+
+  async update (update: PaymentUpdate): Promise<truffle.TransactionResult> {
+    return this.instance.update(update.channelId, update.nonce, update.merkleRoot, update.senderSig, update.receiverSig)
+  }
+
   async startSettling (channelId: string, _origin?: string): Promise<truffle.TransactionResult> {
     let origin = _origin || this.sender
     return this.instance.startSettling(channelId, {from: origin})
   }
+
+  async sign (origin: Address, digest: HexString): Promise<HexString> {
+    return new Promise<string>((resolve, reject) => {
+      this.web3.eth.sign(origin, digest, (error, signature) => {
+        error ? reject(error) : resolve(signature)
+      })
+    })
+  }
+}
+
+export async function inSequence(times: number, fn: () => Promise<void>): Promise<void> {
+  await Array.from(Array(times)).reduce(prev => {
+    return prev.then(async () => {
+      await fn()
+    })
+  }, Promise.resolve())
 }

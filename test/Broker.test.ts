@@ -30,6 +30,7 @@ contract('Broker', accounts => {
       instance = await BrokerContract.deployed()
       s = new S.BrokerScaffold({
         instance: instance,
+        web3: web3,
         sender: accounts[0],
         receiver: accounts[1],
         alien: accounts[2],
@@ -146,96 +147,82 @@ contract('Broker', accounts => {
 
   describe('canUpdate', () => {
     let merkleRoot = '0xdeadbeaf'
-    let settlingPeriod = 10
 
-    specify('ok', async () => {
-      let channelId = await s.openChannel({settlingPeriod})
-      assert.isFalse(await instance.isSettled(channelId))
+    specify('ok if open', async () => {
+      let channelId = await s.openChannel()
+      assert.isTrue(await instance.isOpen(channelId))
+      let nextUpdate = await s.nextUpdate(channelId, merkleRoot)
+      assert.isTrue(await s.canUpdate(nextUpdate))
+    })
 
-      let tx = await s.startSettling(channelId)
+    specify('ok if settling', async () => {
+      let channelId = await s.openChannel({settlingPeriod: 10})
+      assert.isFalse(await instance.isSettling(channelId))
+      await s.startSettling(channelId)
       assert.isTrue(await instance.isSettling(channelId))
-      assert.isFalse(await instance.isOpen(channelId))
-      assert.isFalse(await instance.isSettled(channelId))
-
-      let nonce = (await s.readChannel(channelId)).nonce.plus(1)
-
-      let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
-      let senderSig = await sign(s.sender, fingerprint)
-      let receiverSig = await sign(s.receiver, fingerprint)
-      assert.isTrue(await instance.canUpdate(channelId, nonce, merkleRoot, senderSig, receiverSig))
+      let nextUpdate = await s.nextUpdate(channelId, merkleRoot)
+      assert.isTrue(await s.canUpdate(nextUpdate))
     })
 
-    specify('not if alien', async () => {
-      let channelId = await s.openChannel({settlingPeriod})
-      let nonce = (await s.readChannel(channelId)).nonce.plus(1)
-      let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
-      let alienSig = await sign(s.alien, fingerprint)
-      let senderSig = await sign(s.sender, fingerprint)
-      let receiverSig = await sign(s.receiver, fingerprint)
-      assert.isFalse(await instance.canUpdate(channelId, nonce, merkleRoot, alienSig, receiverSig))
-      assert.isFalse(await instance.canUpdate(channelId, nonce, merkleRoot, senderSig, alienSig))
+    specify('not if alien as sender', async () => {
+      let channelId = await s.openChannel()
+      let nextUpdate = await s.nextUpdate(channelId, merkleRoot, s.alien, s.receiver)
+      assert.isFalse(await s.canUpdate(nextUpdate))
     })
 
-    specify('not if lower or equal nonce', async () => {
-      let channelId = await s.openChannel({settlingPeriod})
-      let nonce = (await s.readChannel(channelId)).nonce
-      let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
-      let senderSig = await sign(s.sender, fingerprint)
-      let receiverSig = await sign(s.receiver, fingerprint)
-      assert.isFalse(await instance.canUpdate(channelId, nonce, merkleRoot, senderSig, receiverSig))
+    specify('not if alien as receiver', async () => {
+      let channelId = await s.openChannel()
+      let nextUpdate = await s.nextUpdate(channelId, merkleRoot, s.sender, s.alien)
+      assert.isFalse(await s.canUpdate(nextUpdate))
+    })
+
+    specify('not if equal nonce', async () => {
+      let channelId = await s.openChannel()
+      let nonce = (await s.readChannel(channelId)).nonce.toNumber()
+      let nextUpdate = await s.nextUpdate(channelId, merkleRoot, s.sender, s.receiver, nonce)
+      assert.isFalse(await s.canUpdate(nextUpdate))
+    })
+
+    specify('not if lower nonce', async () => {
+      let channelId = await s.openChannel()
+      await S.inSequence(3, async () => {
+        let update = await s.nextUpdate(channelId, merkleRoot)
+        await s.update(update)
+      })
+
+      let nonce = (await s.readChannel(channelId)).nonce.toNumber() - 1
+      let nextUpdate = await s.nextUpdate(channelId, merkleRoot, s.sender, s.receiver, nonce)
+      assert.isFalse(await s.canUpdate(nextUpdate))
     })
 
     specify('not if settled', async () => {
       let channelId = await s.openChannel()
       await s.startSettling(channelId)
-      let nonce = (await s.readChannel(channelId)).nonce.plus(1)
-      let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
-      let senderSig = await sign(s.sender, fingerprint)
-      let receiverSig = await sign(s.receiver, fingerprint)
-      assert.isFalse(await instance.canUpdate(channelId, nonce, merkleRoot, senderSig, receiverSig))
+      assert.isTrue(await instance.isSettled(channelId))
+      let nextUpdate = await s.nextUpdate(channelId, merkleRoot)
+      assert.isFalse(await s.canUpdate(nextUpdate))
     })
   })
 
   describe('update', () => {
     let settlingPeriod = 10
+    let merkleRoot = util.bufferToHex(abi.rawEncode(['bytes32'], ['0xcafebabe']))
 
     specify('emit DidUpdate event', async () => {
-      let channelId = await s.openChannel({settlingPeriod})
-      let nonce = (await s.readChannel(channelId)).nonce.plus(1)
-      let merkleRoot = util.bufferToHex(abi.rawEncode(['bytes32'], ['0xcafebabe']))
-
-      let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
-      let senderSig = await sign(s.sender, fingerprint)
-      let receiverSig = await sign(s.receiver, fingerprint)
-
-      let tx = await instance.update(channelId, nonce, merkleRoot, senderSig, receiverSig)
+      let channelId = await s.openChannel()
+      let nextUpdate = await s.nextUpdate(channelId, merkleRoot)
+      let tx = await s.update(nextUpdate)
       assert.isTrue(tx.logs.some(Broker.isDidUpdateEvent))
     })
 
-    specify('set merkleRoot', async () => {
+    specify('set channel params', async () => {
       let channelId = await s.openChannel({settlingPeriod})
-      let nonce = (await s.readChannel(channelId)).nonce.plus(1)
-      let merkleRoot = util.bufferToHex(abi.rawEncode(['bytes32'], ['0xcafebabe']))
-      let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
-      let senderSig = await sign(s.sender, fingerprint)
-      let receiverSig = await sign(s.receiver, fingerprint)
-
-      await instance.update(channelId, nonce, merkleRoot, senderSig, receiverSig)
-      let newMerkleRoot = (await s.readChannel(channelId)).root
+      let nextUpdate = await s.nextUpdate(channelId, merkleRoot)
+      await s.update(nextUpdate)
+      let channel = await s.readChannel(channelId)
+      let newMerkleRoot = channel.root
       assert.equal(newMerkleRoot, merkleRoot)
-    })
-
-    specify('set nonce', async () => {
-      let channelId = await s.openChannel({settlingPeriod})
-      let nonce = (await s.readChannel(channelId)).nonce.plus(1)
-      let merkleRoot = util.bufferToHex(abi.rawEncode(['bytes32'], ['0xcafebabe']))
-      let fingerprint = await instance.updateFingerprint(channelId, nonce, merkleRoot)
-      let senderSig = await sign(s.sender, fingerprint)
-      let receiverSig = await sign(s.receiver, fingerprint)
-
-      await instance.update(channelId, nonce, merkleRoot, senderSig, receiverSig)
-      let newNonce = (await s.readChannel(channelId)).nonce
-      assert.equal(newNonce.toString(), nonce.toString())
+      assert.equal(channel.nonce.toNumber(), nextUpdate.nonce)
     })
   })
 
