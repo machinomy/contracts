@@ -20,6 +20,12 @@ module.exports = {
       from: '0x1edfecaa5c2ebcccc2a7f200619333d05beaaa69',
       password: process.env.PASSWORD,
       gas: 1700000
-    }
+    },
+    main: {
+      host: "localhost",
+      port: 8545,
+      network_id: 1,
+      gas: 1700000
+    },
   }
 };
