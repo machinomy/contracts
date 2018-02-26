@@ -26,7 +26,7 @@ async function main () {
     let documentation = natSpec[name]
     let outputFile = path.join(config.build_directory, 'doc', `${name}.json`)
     let asString = JSON.stringify(documentation, null, 4)
-    await write(outputFile, asString)
+  await write(outputFile, asString)
   }
 }
 
