@@ -1,3 +1,5 @@
+const HDWalletProvider = require("truffle-hdwallet-provider")
+const MNEMONIC = process.env.MNEMONIC
 const GAS_LIMIT = 2700000
 
 module.exports = {
@@ -8,11 +10,9 @@ module.exports = {
       port: 8545,
       gas: GAS_LIMIT
     },
-    ropsten: {
+    ropsten: { // from: 0x9a6942bD73680F300940C8222BBe067c3c74d96D
       network_id: 3,
-      host: "localhost",
-      port: 8545,
-      from: '0x1d612c43acf0c1bf855fe32a0beb782293b1bfb8',
+      provider: new HDWalletProvider(MNEMONIC, "https://ropsten.infura.io/"),
       gas: GAS_LIMIT
     },
     kovan: {
