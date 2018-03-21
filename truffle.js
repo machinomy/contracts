@@ -21,10 +21,10 @@ module.exports = {
       port: 8545,
       gas: GAS_LIMIT
     },
-    main: {
-      host: "localhost",
-      port: 8545,
+    mainnet: {
       network_id: 1,
+      provider: new HDWalletProvider(MNEMONIC, "https://mainnet.infura.io/"),
+      gasPrice: 20000000000,
       gas: GAS_LIMIT
     },
     rinkeby: {
