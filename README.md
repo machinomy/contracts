@@ -12,7 +12,7 @@ $ yarn add @machinomy/contracts
 ```
 
 ## Workflow
-Use [ganache-cli](https://github.com/trufflesuite/ganache-cli) for fast development. Start testrpc by command:
+Use [ganache-cli](https://github.com/trufflesuite/ganache-cli) for fast development. Start it:
 ```
 $ ganache-cli
 ```
