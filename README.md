@@ -12,9 +12,9 @@ $ yarn add @machinomy/contracts
 ```
 
 ## Workflow
-Use [testrpc](https://github.com/ethereumjs/testrpc) for fast development. Start testrpc by command:
+Use [ganache-cli](https://github.com/trufflesuite/ganache-cli) for fast development. Start testrpc by command:
 ```
-$ testrpc
+$ ganache-cli
 ```
 
 Then deploy contracts to the tesrpc network:
