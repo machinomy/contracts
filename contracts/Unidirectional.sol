@@ -13,7 +13,7 @@ contract Unidirectional {
         address receiver;
         uint256 value; // Total amount of money deposited to the channel.
 
-        uint32 settlingPeriod; // How many blocks to wait for the receiver to claim her funds, after sender starts settling.
+        uint256 settlingPeriod; // How many blocks to wait for the receiver to claim her funds, after sender starts settling.
         uint256 settlingUntil; // Starting with this block number, anyone can settle the channel.
     }
 
@@ -32,7 +32,7 @@ contract Unidirectional {
     /// @param receiver Receiver of the funds, counter-party of `msg.sender`.
     /// @param settlingPeriod Number of blocks to wait for receiver to `claim` her funds after the sender starts settling period (see `startSettling`).
     /// After that period is over anyone could call `settle`, and move all the channel funds to the sender.
-    function open(bytes32 channelId, address receiver, uint32 settlingPeriod) public payable {
+    function open(bytes32 channelId, address receiver, uint256 settlingPeriod) public payable {
         require(isAbsent(channelId));
 
         channels[channelId] = PaymentChannel({

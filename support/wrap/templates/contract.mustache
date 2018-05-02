@@ -16,6 +16,10 @@ export namespace {{contractName}} {
     {{> function contractName=../contractName}}
   {{/each}}
 
+  {{#each events}}
+    {{> filter contractName=../contractName}}
+  {{/each}}
+
     send: (value: BigNumber.BigNumber | number) => Promise<truffle.TransactionResult>
     sendTransaction: (opts: Web3.CallData) => Promise<truffle.TransactionResult>
   }
