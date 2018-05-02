@@ -1,9 +1,9 @@
+# Editors
 .vscode/
 .idea/
-node_modules/
-.env
-yarn-error.log
 
+# Build Output
+dist/
 **/*.js.map
 **/*.d.ts
 **/*.js
@@ -11,5 +11,13 @@ coverage.json
 coverage/
 build/wrappers
 
+# Temporary Files
+node_modules/
+yarn-error.log
+.node-*
+
+# Local Configuration
+.env
+
+# File System Extras
 .DS_Store
-dist/
