@@ -15,7 +15,7 @@ export default class Gaser {
 
   async diff<A> (name: string, account: string, fn: () => A, forceLog?: boolean): Promise<A> {
     let before = this.web3.eth.getBalance(account)
-    let result = await fn()
+    let result = fn()
     let after = this.web3.eth.getBalance(account)
     let gasCost = this.conversion.ethToGas(before.minus(after))
     this.log(gasCost, name, forceLog)
