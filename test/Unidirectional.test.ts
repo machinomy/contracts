@@ -5,11 +5,13 @@ import * as asPromised from 'chai-as-promised'
 import * as contracts from '../src/index'
 import * as support from './support'
 import Units from '../src/Units'
+import Gaser from './support/Gaser'
 
 chai.use(asPromised)
 
 const web3 = (global as any).web3 as Web3
 const assert = chai.assert
+const gaser = new Gaser(web3)
 
 const Unidirectional = artifacts.require<contracts.Unidirectional.Contract>('Unidirectional.sol')
 
@@ -22,7 +24,8 @@ contract('Unidirectional', accounts => {
   const alien = accounts[2]
   const channelValue = Units.convert(1, 'eth', 'wei')
   const settlingPeriod = 0
-  let payment = Units.convert(0.1, 'eth', 'wei')
+  const payment = Units.convert(0.1, 'eth', 'wei')
+
   let instance: contracts.Unidirectional.Contract
 
   async function createChannelRaw (channelId: string, _settlingPeriod: number = settlingPeriod) {
@@ -51,7 +54,7 @@ contract('Unidirectional', accounts => {
   describe('.open', () => {
     specify('emit DidOpen event', async () => {
       let channelId = contracts.channelId(sender, receiver)
-      const log = await createChannelRaw(channelId)
+      const log = await gaser.tx('Unidirectional.open', createChannelRaw(channelId))
       assert(contracts.Unidirectional.isDidOpenEvent(log.logs[0]))
       let event = log.logs[0].args as contracts.Unidirectional.DidOpen
       assert.equal(event.channelId, channelId)
@@ -109,7 +112,7 @@ contract('Unidirectional', accounts => {
     }
 
     specify('emit DidClaim event', async () => {
-      let tx = await openAndClaim()
+      let tx = await gaser.tx('Unidirectional.claim', openAndClaim())
       assert.isTrue(contracts.Unidirectional.isDidClaimEvent(tx.logs[0]))
     })
     specify('remove channel', async () => {
@@ -195,7 +198,7 @@ contract('Unidirectional', accounts => {
   describe('.startSettling', () => {
     specify('emit DidStartSettling event', async () => {
       let didOpenEvent = await createChannel()
-      let log = await instance.startSettling(didOpenEvent.channelId, {from: sender})
+      let log = await gaser.tx('Unidirectional.startSettling', instance.startSettling(didOpenEvent.channelId, {from: sender}))
       assert.isTrue(contracts.Unidirectional.isDidStartSettlingEvent(log.logs[0]))
     })
     specify('set settlingUntil', async () => {
@@ -232,7 +235,7 @@ contract('Unidirectional', accounts => {
     specify('emit DidSettle event', async () => {
       let didOpenEvent = await createChannel()
       await instance.startSettling(didOpenEvent.channelId, {from: sender})
-      let log = await instance.settle(didOpenEvent.channelId)
+      let log = await gaser.tx('Unidirectional.settle', instance.settle(didOpenEvent.channelId))
       assert.isTrue(contracts.Unidirectional.isDidSettleEvent(log.logs[0]))
     })
     specify('send money to sender', async () => {
@@ -269,7 +272,7 @@ contract('Unidirectional', accounts => {
     specify('emit DidDeposit event', async () => {
       let didOpenEvent = await createChannel()
       let channelId = didOpenEvent.channelId
-      let tx = await instance.deposit(channelId, {value: payment, from: sender})
+      let tx = await gaser.tx('Unidirectional.deposit', instance.deposit(channelId, {value: payment, from: sender}))
       assert(contracts.Unidirectional.isDidDepositEvent(tx.logs[0]))
       let event = tx.logs[0].args as contracts.Unidirectional.DidDeposit
       assert.equal(event.channelId, channelId)
