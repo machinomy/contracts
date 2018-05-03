@@ -34,3 +34,16 @@ To deploy the package to the Ropsten network you need to run local geth instance
 $ yarn truffle:migrate --network ropsten
 $ yarn build
 ```
+
+## Testing
+```
+$ yarn test
+```
+
+The package uses [embedded Ganache](https://github.com/gnosis/run-with-testrpc) for testing.
+No need thus to run a separate Ethereum node. For increased visibility over gas cost,
+set environment variable `LOG_GAS_COST` for something _truthy_. It enables logging of gas cost information to the console.
+
+```
+$ LOG_GAS_COST=1 yarn test
+```
