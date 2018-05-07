@@ -6,7 +6,9 @@
     "sourceMap": true,
     "declaration": true,
     "strict": true,
-    "noImplicitReturns": true
+    "noImplicitReturns": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
   },
   "include": [
     "build/wrappers/*.ts",
